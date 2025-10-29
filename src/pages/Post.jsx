@@ -15,7 +15,10 @@ export default function Post() {
   return (
     <div className="p-4 max-w-2xl mx-auto">
       <h1 className="text-3xl font-bold">{post.title}</h1>
-      <p className="mt-4">{post.content}</p>
+      <div
+        className="mt-4 prose dark:prose-invert"
+        dangerouslySetInnerHTML={{ __html: post.content }}
+      ></div>
     </div>
   );
 }

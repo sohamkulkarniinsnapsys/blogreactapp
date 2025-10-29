@@ -37,7 +37,7 @@ export default function PostDetails() {
       )}
       <h1 className="text-3xl font-bold mb-4 text-gray-900 dark:text-gray-100">{post.title}</h1>
       <div className="prose dark:prose-invert">
-        <p>{post.content}</p>
+        dangerouslySetInnerHTML={{ __html: post.content }}
       </div>
     </div>
   );
