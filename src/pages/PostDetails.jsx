@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { getPost } from "../services/appwrite";
+import { getPost, getFileViewUrl } from "../services/appwrite";
 import Spinner from "../components/Spinner";
-import { getFileViewUrl } from "../services/appwrite";
-
 
 export default function PostDetails() {
   const { id } = useParams();
@@ -35,10 +33,13 @@ export default function PostDetails() {
           className="w-full h-full object-cover rounded mb-6"
         />
       )}
-      <h1 className="text-3xl font-bold mb-4 text-gray-900 dark:text-gray-100">{post.title}</h1>
-      <div className="prose dark:prose-invert">
+      <h1 className="text-3xl font-bold mb-4 text-gray-900 dark:text-gray-100">
+        {post.title}
+      </h1>
+      <div
+        className="prose dark:prose-invert"
         dangerouslySetInnerHTML={{ __html: post.content }}
-      </div>
+      ></div>
     </div>
   );
 }
