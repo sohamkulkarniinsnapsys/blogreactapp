@@ -83,14 +83,13 @@ export default function CreatePost() {
             Content
           </label>
           <Editor
-            apiKey="3y80zbpru71zniuj4tyt7jljt0qtmaop7wjzgsz8xhpjbc0d"
+            apiKey="import.meta.env.VITE_TINYMCE_KEY"
             value={content}
             onEditorChange={(newContent) => setContent(newContent)}
             init={{
               height: 400,
               skin: 'oxide-dark',
               content_css: "dark",
-              license_key: 'gpl',
               plugins: [
                 'anchor autolink charmap codesample emoticons link lists media searchreplace table visualblocks wordcount',
                 'checklist mediaembed casechange formatpainter pageembed a11ychecker tinymcespellchecker permanentpen powerpaste advtable advcode advtemplate ai uploadcare mentions tinycomments tableofcontents footnotes mergetags autocorrect typography inlinecss markdown importword exportword exportpdf'
