@@ -90,6 +90,7 @@ export default function CreatePost() {
               height: 400,
               skin: 'oxide-dark',
               content_css: "dark",
+              license_key: 'gpl',
               plugins: [
                 'anchor autolink charmap codesample emoticons link lists media searchreplace table visualblocks wordcount',
                 'checklist mediaembed casechange formatpainter pageembed a11ychecker tinymcespellchecker permanentpen powerpaste advtable advcode advtemplate ai uploadcare mentions tinycomments tableofcontents footnotes mergetags autocorrect typography inlinecss markdown importword exportword exportpdf'
