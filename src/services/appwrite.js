@@ -1,5 +1,5 @@
 // src/services/appwrite.js
-import { Client, Account, Databases, ID, Storage } from "appwrite";
+import { Client, Account, Databases, ID, Storage, Query } from "appwrite";
 
 const client = new Client()
   .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT) // include /v1
@@ -119,29 +119,22 @@ export const createPost = async (title, content, imageFile, userId, status = "dr
   }
 };
 
-// Get posts optionally filtered by status or userID
+// Get posts optionally filtered by status or userID (server-side)
 export const getPosts = async ({ status = null, userId = null } = {}) => {
   ensureDbConfig();
   try {
-    const res = await databases.listDocuments(DATABASE_ID, COLLECTION_ID);
+    const queries = [];
 
-    let filtered = res.documents;
+    if (status) queries.push(Query.equal("status", status));
+    if (userId) queries.push(Query.equal("userID", userId));
 
-    if (status) {
-      filtered = filtered.filter((p) => p.status === status);
-    }
-
-    if (userId) {
-      filtered = filtered.filter((p) => p.userID === userId);
-    }
-
-    return filtered || [];
+    const res = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, queries);
+    return res.documents || [];
   } catch (err) {
     console.error("getPosts error:", err);
     throw err;
   }
 };
-
 
 // Get single post
 export const getPost = async (id) => {
