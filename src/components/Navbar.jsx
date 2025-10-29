@@ -17,12 +17,6 @@ export default function Navbar() {
     <nav className="bg-primary dark:bg-gray-900 text-white px-6 py-4 flex justify-between items-center shadow-md">
       <Link to="/" className="font-bold text-xl">📝 BlogApp</Link>
       <div className="flex items-center gap-4">
-        <button
-          onClick={toggleTheme}
-          className="bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-2 py-1 rounded"
-        >
-          {darkMode ? "☀️" : "🌙"}
-        </button>
         {user ? (
           <>
             <Link to="/dashboard" className="hover:underline">Dashboard</Link>

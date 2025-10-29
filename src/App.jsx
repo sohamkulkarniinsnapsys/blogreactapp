@@ -9,6 +9,8 @@ import Dashboard from "./pages/Dashboard";
 import PostDetails from "./pages/PostDetails";
 import { ThemeProvider } from "./context/ThemeContext";
 import { AuthProvider, AuthContext } from "./context/AuthContext";
+import CreatePost from "./pages/CreatePost";
+
 
 function ProtectedRoute({ children }) {
   const { user, checking } = useContext(AuthContext);
@@ -34,6 +36,7 @@ export default function App() {
                 element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
               />
               <Route path="*" element={<Navigate to="/" />} />
+              <Route path="/create-post" element={<CreatePost />} />
             </Routes>
           </div>
         </BrowserRouter>
