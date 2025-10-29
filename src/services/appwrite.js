@@ -73,20 +73,19 @@ export const getCurrentUser = async () => {
 // -----------------
 // Storage helpers
 // -----------------
-export const uploadImage = async (file) => {
+export const uploadImage = async (file, userId = null) => {
   if (!BUCKET_ID) throw new Error("BUCKET_ID is not configured (VITE_APPWRITE_BUCKET_ID).");
   try {
-    const permissions = [
-      Permission.read(Role.any()), // ✅ Public read access (fixes 401 error)
-    ];
+    const permissions = [Permission.read(Role.any())];
 
     if (userId) {
       permissions.push(
-        Permission.write(Role.user(userId)), // only uploader can modify/delete
+        Permission.write(Role.user(userId)),
         Permission.delete(Role.user(userId))
       );
     }
-    const res = await storage.createFile(BUCKET_ID, ID.unique(), file);
+
+    const res = await storage.createFile(BUCKET_ID, ID.unique(), file, permissions);
     return res.$id;
   } catch (err) {
     console.error("uploadImage error:", err);
@@ -112,16 +111,16 @@ function ensureDbConfig() {
 export const createPost = async (title, content, imageFile, userId, status = "draft") => {
   ensureDbConfig();
   if (!imageFile) throw new Error("Image required for post creation.");
-  if (!userId) throw new Error("userID is required for post creation.");
+  if (!userId) throw new Error("userId is required for post creation.");
 
   try {
-    const fileId = await uploadImage(imageFile);
+    const fileId = await uploadImage(imageFile, userId); // pass userId here
     const doc = await databases.createDocument(DATABASE_ID, COLLECTION_ID, ID.unique(), {
       title,
       content,
       image: fileId,
       userID: userId,
-      status, // draft, publish, archive
+      status,
     });
     return doc;
   } catch (err) {
