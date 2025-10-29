@@ -1,0 +1,44 @@
+.ProseMirror {
+  min-height: 200px;
+  outline: none;
+  padding: 0.5rem;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.ProseMirror p {
+  margin: 0.5rem 0;
+}
+
+.ProseMirror ul {
+  list-style-type: disc;
+  margin-left: 1.5rem;
+}
+
+.ProseMirror h1, .ProseMirror h2, .ProseMirror h3 {
+  font-weight: 600;
+  margin: 1rem 0 0.5rem;
+}
+
+.prose {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.preview-content {
+  min-height: 200px;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.preview-content ul {
+  list-style-type: disc;
+  margin-left: 1.5rem;
+}
+
+.preview-content h1,
+.preview-content h2,
+.preview-content h3 {
+  font-weight: 600;
+  margin: 1rem 0 0.5rem;
+}

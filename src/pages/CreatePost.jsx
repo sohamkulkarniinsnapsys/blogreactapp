@@ -1,92 +1,33 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPost, getCurrentUser } from "../services/appwrite";
+import { Editor } from "@tinymce/tinymce-react";
+import { AuthContext } from "../context/AuthContext";
 
 export default function CreatePost() {
   const navigate = useNavigate();
+  const { user: contextUser } = useContext(AuthContext); // Get user from context
+
+  // Form states
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState("");
+  const [status, setStatus] = useState("draft");
+
+  // Loading and error
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [status, setStatus] = useState("draft");
-  const [user, setUser] = useState(null);
-  const contentRef = useRef(null);
 
-  // Active styles state
-  const [activeStyles, setActiveStyles] = useState({
-    bold: false,
-    italic: false,
-    underline: false,
-    list: false,
-  });
+  // Local user state for safety
+  const [user, setUser] = useState(contextUser);
 
+  // If context user changes, update local user
   useEffect(() => {
-    (async () => {
-      const currentUser = await getCurrentUser();
-      if (!currentUser) return navigate("/login");
-      setUser(currentUser);
-    })();
-  }, [navigate]);
+    setUser(contextUser);
+  }, [contextUser]);
 
-  // Update toolbar active states
-  const updateActiveStyles = () => {
-    setActiveStyles({
-      bold: document.queryCommandState("bold"),
-      italic: document.queryCommandState("italic"),
-      underline: document.queryCommandState("underline"),
-      list: document.queryCommandState("insertUnorderedList"),
-    });
-  };
-
-  const execCommand = (command) => {
-    contentRef.current.focus(); // Ensure focus
-    document.execCommand(command, false, null);
-    updateActiveStyles();
-  };
-
-  // Insert bullet at cursor
-  const insertBullet = () => {
-    if (!contentRef.current) return;
-    const sel = window.getSelection();
-    if (!sel.rangeCount) return;
-    const range = sel.getRangeAt(0);
-    const bullet = '\u2022 '; // Unicode bullet
-    const node = document.createTextNode(bullet);
-    range.insertNode(node);
-    range.setStartAfter(node);
-    range.setEndAfter(node);
-    sel.removeAllRanges();
-    sel.addRange(range);
-    setContent(contentRef.current.innerHTML);
-  };
-
-  // Handle Enter key for bullets
-  const handleKeyDown = (e) => {
-  if (e.key === "Enter") {
-    e.preventDefault(); // prevent default Enter behavior
-
-    const sel = window.getSelection();
-    if (!sel.rangeCount) return;
-
-    const range = sel.getRangeAt(0);
-    const bulletLine = document.createElement("div");
-    bulletLine.textContent = "\u2022 "; // bullet character
-    range.insertNode(bulletLine);
-
-    const newRange = document.createRange();
-    newRange.setStart(bulletLine, 1); // after bullet
-    newRange.collapse(true);
-
-    sel.removeAllRanges();
-    sel.addRange(newRange);
-    
-    setContent(contentRef.current.innerHTML);
-  }
-};
-
-
+  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -136,70 +77,48 @@ export default function CreatePost() {
           />
         </div>
 
-        {/* Content with Rich Text */}
+        {/* Content */}
         <div>
           <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
             Content
           </label>
-
-          {/* Formatting Toolbar */}
-          <div className="flex gap-2 mb-2">
-            <button
-              type="button"
-              style={{ cursor: 'pointer' }}
-              onClick={() => execCommand("bold")}
-              className={`px-2 py-1 border rounded ${activeStyles.bold ? "bg-gray-300 dark:bg-gray-600" : ""}`}
-            >
-              B
-            </button>
-            <button
-              type="button"
-              style={{ cursor: 'pointer' }}
-              onClick={() => execCommand("italic")}
-              className={`px-2 py-1 border rounded ${activeStyles.italic ? "bg-gray-300 dark:bg-gray-600" : ""}`}
-            >
-              I
-            </button>
-            <button
-              type="button"
-              style={{ cursor: 'pointer' }}
-              onClick={() => execCommand("underline")}
-              className={`px-2 py-1 border rounded ${activeStyles.underline ? "bg-gray-300 dark:bg-gray-600" : ""}`}
-            >
-              U
-            </button>
-            <button
-              type="button"
-              style={{ cursor: 'pointer' }}
-              onClick={insertBullet}
-              className={`px-2 py-1 border rounded ${activeStyles.list ? "bg-gray-300 dark:bg-gray-600" : ""}`}
-            >
-              • List
-            </button>
-          </div>
-
-          {/* Editable div */}
-          <div
-            ref={contentRef}
-            contentEditable
-            onInput={(e) => setContent(e.currentTarget.innerHTML)}
-            onKeyDown={handleKeyDown}
-            onKeyUp={updateActiveStyles}
-            onMouseUp={updateActiveStyles}
-            className="w-full p-3 border rounded-lg min-h-[200px] bg-gray-50 dark:bg-gray-700 dark:text-white overflow-auto"
-            placeholder="Write your blog content..."
+          <Editor
+            apiKey="3y80zbpru71zniuj4tyt7jljt0qtmaop7wjzgsz8xhpjbc0d"
+            value={content}
+            onEditorChange={(newContent) => setContent(newContent)}
+            init={{
+              height: 400,
+              skin: 'oxide-dark',
+              content_css: "dark",
+              plugins: [
+                'anchor autolink charmap codesample emoticons link lists media searchreplace table visualblocks wordcount',
+                'checklist mediaembed casechange formatpainter pageembed a11ychecker tinymcespellchecker permanentpen powerpaste advtable advcode advtemplate ai uploadcare mentions tinycomments tableofcontents footnotes mergetags autocorrect typography inlinecss markdown importword exportword exportpdf'
+              ],
+              toolbar:
+                'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | link media table mergetags | addcomment showcomments | spellcheckdialog a11ycheck typography uploadcare | align lineheight | checklist numlist bullist indent outdent | emoticons charmap | removeformat',
+              tinycomments_mode: 'embedded',
+              tinycomments_author: user?.name || "Author",
+              mergetags_list: [
+                { value: 'First.Name', title: 'First Name' },
+                { value: 'Email', title: 'Email' },
+              ],
+              ai_request: (request, respondWith) =>
+                respondWith.string(() => Promise.reject('AI Assistant not implemented')),
+              uploadcare_public_key: 'defad1d9f23ff4a23fe2',
+              content_style: "body { font-family:Helvetica,Arial,sans-serif; font-size:14px }",
+            }}
           />
         </div>
 
-        {/* Image */}
+        {/* Cover Image */}
         <div>
           <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-            Image
+            Cover Image
           </label>
           <input
             type="file"
-            style={{ cursor: 'pointer' }}
             accept="image/*"
+            style={{ cursor: 'pointer' }}
             onChange={(e) => {
               const f = e.target.files[0];
               setFile(f);

@@ -121,7 +121,7 @@ export default function Dashboard() {
                 <img
                   src={getFileViewUrl(p.image)}
                   alt={p.title}
-                  className="w-full h-40 object-cover rounded mb-3"
+                  className="w-full h-full object-cover rounded mb-3"
                 />
               )}
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
