@@ -83,7 +83,7 @@ export default function CreatePost() {
             Content
           </label>
           <Editor
-            apiKey="import.meta.env.VITE_TINYMCE_KEY"
+            apiKey={import.meta.env.VITE_TINYMCE_KEY}
             value={content}
             onEditorChange={(newContent) => setContent(newContent)}
             init={{
