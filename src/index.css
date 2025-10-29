@@ -16,3 +16,6 @@
 .prose {
   line-height: 1.7;
 }
+body {
+  background-color: #131a23; /* Tailwind gray-800 equivalent for dark mode default */
+}

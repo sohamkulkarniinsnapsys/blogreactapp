@@ -157,10 +157,10 @@ export default function Dashboard() {
                 {stripHtml(p.content).slice(0, 120)}...
               </p>
               <div className="flex justify-between items-center text-sm">
-                <button onClick={() => startEdit(p)} className="text-yellow-600 hover:underline">
+                <button style={{ cursor: 'pointer' }} onClick={() => startEdit(p)} className="text-yellow-600 hover:underline">
                   Edit
                 </button>
-                <button onClick={() => handleDelete(p.$id)} className="text-red-600 hover:underline">
+                <button style={{ cursor: 'pointer' }} onClick={() => handleDelete(p.$id)} className="text-red-600 hover:underline ">
                   Delete
                 </button>
               </div>
