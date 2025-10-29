@@ -1,3 +1,4 @@
+// src/services/appwrite.js
 import { Client, Account, Databases, ID, Storage } from "appwrite";
 
 const client = new Client()
@@ -96,7 +97,8 @@ function ensureDbConfig() {
   if (!COLLECTION_ID) throw new Error("COLLECTION_ID is not configured.");
 }
 
-export const createPost = async (title, content, imageFile, userId) => {
+// Create Post
+export const createPost = async (title, content, imageFile, userId, status = "draft") => {
   ensureDbConfig();
   if (!imageFile) throw new Error("Image required for post creation.");
   if (!userId) throw new Error("userID is required for post creation.");
@@ -107,7 +109,8 @@ export const createPost = async (title, content, imageFile, userId) => {
       title,
       content,
       image: fileId,
-      userID: userId, // required for schema
+      userID: userId,
+      status, // draft, publish, archive
     });
     return doc;
   } catch (err) {
@@ -116,17 +119,31 @@ export const createPost = async (title, content, imageFile, userId) => {
   }
 };
 
-export const getPosts = async () => {
+// Get posts optionally filtered by status or userID
+export const getPosts = async ({ status = null, userId = null } = {}) => {
   ensureDbConfig();
   try {
     const res = await databases.listDocuments(DATABASE_ID, COLLECTION_ID);
-    return res.documents || [];
+
+    let filtered = res.documents;
+
+    if (status) {
+      filtered = filtered.filter((p) => p.status === status);
+    }
+
+    if (userId) {
+      filtered = filtered.filter((p) => p.userID === userId);
+    }
+
+    return filtered || [];
   } catch (err) {
     console.error("getPosts error:", err);
     throw err;
   }
 };
 
+
+// Get single post
 export const getPost = async (id) => {
   ensureDbConfig();
   try {
@@ -137,11 +154,13 @@ export const getPost = async (id) => {
   }
 };
 
-export const updatePost = async (id, title, content, imageFile) => {
+// Update Post
+export const updatePost = async (id, title, content, imageFile, status) => {
   ensureDbConfig();
   try {
     const payload = { title, content };
     if (imageFile) payload.image = await uploadImage(imageFile);
+    if (status) payload.status = status; // allow updating status
     return await databases.updateDocument(DATABASE_ID, COLLECTION_ID, id, payload);
   } catch (err) {
     console.error("updatePost error:", err);
@@ -149,6 +168,7 @@ export const updatePost = async (id, title, content, imageFile) => {
   }
 };
 
+// Delete Post
 export const deletePost = async (id) => {
   ensureDbConfig();
   try {
