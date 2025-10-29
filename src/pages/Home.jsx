@@ -11,7 +11,7 @@ export default function Home() {
   useEffect(() => {
     (async () => {
       try {
-        const p = await getPosts("publish");
+        const p = await getPosts({status : "publish"});
         setPosts(p);
       } catch (err) {
         console.error("Home getPosts error:", err);
