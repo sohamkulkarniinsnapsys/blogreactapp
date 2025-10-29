@@ -75,6 +75,16 @@ export const getCurrentUser = async () => {
 export const uploadImage = async (file) => {
   if (!BUCKET_ID) throw new Error("BUCKET_ID is not configured (VITE_APPWRITE_BUCKET_ID).");
   try {
+    const permissions = [
+      Permissions.read(Role.any()), // ✅ Public read access (fixes 401 error)
+    ];
+
+    if (userId) {
+      permissions.push(
+        Permissions.write(Role.user(userId)), // only uploader can modify/delete
+        Permissions.delete(Role.user(userId))
+      );
+    }
     const res = await storage.createFile(BUCKET_ID, ID.unique(), file);
     return res.$id;
   } catch (err) {
