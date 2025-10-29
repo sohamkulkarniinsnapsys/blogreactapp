@@ -1,5 +1,6 @@
 // src/services/appwrite.js
 import { Client, Account, Databases, ID, Storage, Query } from "appwrite";
+import { Permission, Role } from "appwrite"; 
 
 const client = new Client()
   .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT) // include /v1
@@ -76,13 +77,13 @@ export const uploadImage = async (file) => {
   if (!BUCKET_ID) throw new Error("BUCKET_ID is not configured (VITE_APPWRITE_BUCKET_ID).");
   try {
     const permissions = [
-      Permissions.read(Role.any()), // ✅ Public read access (fixes 401 error)
+      Permission.read(Role.any()), // ✅ Public read access (fixes 401 error)
     ];
 
     if (userId) {
       permissions.push(
-        Permissions.write(Role.user(userId)), // only uploader can modify/delete
-        Permissions.delete(Role.user(userId))
+        Permission.write(Role.user(userId)), // only uploader can modify/delete
+        Permission.delete(Role.user(userId))
       );
     }
     const res = await storage.createFile(BUCKET_ID, ID.unique(), file);
