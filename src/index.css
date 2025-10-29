@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+/* Optional extra styles (used by Spinner) */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.loader {
+  border: 4px solid rgba(0, 0, 0, 0.08);
+  border-top-color: #3B82F6;
+  border-radius: 9999px;
+  width: 2.5rem;
+  height: 2.5rem;
+  animation: spin 1s linear infinite;
+}
+
+.prose {
+  line-height: 1.7;
+}
