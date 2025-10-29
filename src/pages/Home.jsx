@@ -4,6 +4,13 @@ import Card from "../components/Card";
 import Spinner from "../components/Spinner";
 import { Link } from "react-router-dom";
 
+// Helper to strip HTML tags from TinyMCE content
+function stripHtml(html) {
+  const div = document.createElement("div");
+  div.innerHTML = html;
+  return div.textContent || div.innerText || "";
+}
+
 export default function Home() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -11,7 +18,7 @@ export default function Home() {
   useEffect(() => {
     (async () => {
       try {
-        const p = await getPosts({status : "publish"});
+        const p = await getPosts({ status: "publish" });
         setPosts(p);
       } catch (err) {
         console.error("Home getPosts error:", err);
@@ -56,7 +63,7 @@ export default function Home() {
                 {p.title}
               </h3>
               <p className="text-gray-700 dark:text-gray-300 mb-4 line-clamp-3">
-                {p.content?.slice(0, 140)}...
+                {stripHtml(p.content).slice(0, 140)}...
               </p>
 
               <Link
