@@ -111,7 +111,7 @@ export default function UpdatePost() {
             <img
               src={preview}
               alt="Preview"
-              className="mt-4 w-full h-64 object-cover rounded-lg shadow"
+              className="mt-4 w-full h-full object-cover rounded-lg shadow"
             />
           )}
         </div>

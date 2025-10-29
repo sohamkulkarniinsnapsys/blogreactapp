@@ -32,7 +32,7 @@ export default function PostDetails() {
         <img
           src={getFileViewUrl(post.image)}
           alt={post.title}
-          className="w-full h-72 object-cover rounded mb-6"
+          className="w-full h-full object-cover rounded mb-6"
         />
       )}
       <h1 className="text-3xl font-bold mb-4 text-gray-900 dark:text-gray-100">{post.title}</h1>
