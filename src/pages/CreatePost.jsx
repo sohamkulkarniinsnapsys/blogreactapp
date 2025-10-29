@@ -1,4 +1,3 @@
-// src/pages/CreatePost.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPost, getCurrentUser, getFileViewUrl } from "../services/appwrite";

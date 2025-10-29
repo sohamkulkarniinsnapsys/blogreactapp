@@ -1,4 +1,3 @@
-// src/pages/PostDetails.jsx
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getPost } from "../services/appwrite";

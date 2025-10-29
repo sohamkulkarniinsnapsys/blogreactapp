@@ -1,4 +1,3 @@
-// src/components/Spinner.jsx
 export default function Spinner() {
   return (
     <div className="flex justify-center items-center p-8">

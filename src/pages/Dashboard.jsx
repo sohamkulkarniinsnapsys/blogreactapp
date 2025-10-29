@@ -1,4 +1,3 @@
-// src/pages/Dashboard.jsx
 import React, { useEffect, useState } from "react";
 import { getCurrentUser, getPosts, deletePost, getFileViewUrl } from "../services/appwrite";
 import { Link, useNavigate } from "react-router-dom";

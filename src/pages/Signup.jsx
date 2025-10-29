@@ -1,4 +1,3 @@
-// src/pages/Signup.jsx
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { signup as appSignup } from "../services/appwrite";

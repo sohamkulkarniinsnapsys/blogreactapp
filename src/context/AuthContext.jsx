@@ -1,4 +1,3 @@
-// src/context/AuthContext.jsx
 import React, { createContext, useEffect, useState } from "react";
 import { getCurrentUser, logout as appwriteLogout } from "../services/appwrite";
 

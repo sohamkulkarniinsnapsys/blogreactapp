@@ -1,4 +1,3 @@
-// src/components/Input.jsx
 export default function Input({ label, error, ...props }) {
   return (
     <div className="mb-4">

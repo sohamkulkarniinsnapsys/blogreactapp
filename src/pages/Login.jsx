@@ -1,4 +1,3 @@
-// src/pages/Login.jsx
 import React, { useContext, useState } from "react";
 import { useForm } from "react-hook-form";
 import { login as appLogin } from "../services/appwrite";
