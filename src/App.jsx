@@ -10,6 +10,7 @@ import CreatePost from "./pages/CreatePost";
 import { ThemeProvider } from "./context/ThemeContext";
 import { AuthProvider, AuthContext } from "./context/AuthContext";
 import { useContext } from "react";
+import CreatePostEnhanced from "./pages/CreatePostEnhanced";
 
 function ProtectedRoute({ children }) {
   const { user, checking } = useContext(AuthContext);
@@ -39,6 +40,7 @@ export default function App() {
                 }
               />
               <Route path="/create-post" element={<CreatePost />} />
+              <Route path="/create-post-enhanced" element={<CreatePostEnhanced />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </div>

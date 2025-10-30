@@ -1,10 +1,12 @@
 // src/services/appwrite.js
-import { Client, Account, Databases, ID, Storage, Query } from "appwrite";
-import { Permission, Role } from "appwrite"; 
+import { Client, Account, Databases, ID, Storage, Query, Permission, Role } from "appwrite";
 
+// -----------------
+// Appwrite Setup
+// -----------------
 const client = new Client()
-  .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT) // include /v1
-  .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID);
+  .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT?.trim() || "")
+  .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID?.trim() || "");
 
 export const account = new Account(client);
 export const databases = new Databases(client);
@@ -15,14 +17,17 @@ export const COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_ID;
 export const BUCKET_ID = import.meta.env.VITE_APPWRITE_BUCKET_ID;
 export const PROJECT_ID = import.meta.env.VITE_APPWRITE_PROJECT_ID;
 
+// -----------------
+// Environment Validation
+// -----------------
 if (!import.meta.env.VITE_APPWRITE_ENDPOINT) {
-  console.error("[Appwrite] VITE_APPWRITE_ENDPOINT not set");
+  console.error("[Appwrite] Missing: VITE_APPWRITE_ENDPOINT");
 }
 if (!DATABASE_ID || !COLLECTION_ID) {
-  console.warn("[Appwrite] DATABASE_ID or COLLECTION_ID missing. CRUD will fail until set.");
+  console.warn("[Appwrite] Missing DATABASE_ID or COLLECTION_ID. CRUD ops may fail.");
 }
 if (!BUCKET_ID) {
-  console.warn("[Appwrite] BUCKET_ID not configured. Image uploads will fail.");
+  console.warn("[Appwrite] Missing BUCKET_ID. Image uploads will fail.");
 }
 
 // -----------------
@@ -39,12 +44,12 @@ export const signup = async (email, password, name) => {
 
 export const login = async (email, password) => {
   try {
-    if (typeof account.createEmailSession === "function") {
-      await account.createEmailSession(email, password);
-    } else if (typeof account.createEmailPasswordSession === "function") {
+    if (typeof account.createEmailPasswordSession === "function") {
       await account.createEmailPasswordSession(email, password);
+    } else if (typeof account.createEmailSession === "function") {
+      await account.createEmailSession(email, password);
     } else {
-      throw new Error("No available session creation method on Appwrite Account.");
+      throw new Error("No available Appwrite session creation method.");
     }
     return await account.get();
   } catch (err) {
@@ -71,10 +76,11 @@ export const getCurrentUser = async () => {
 };
 
 // -----------------
-// Storage helpers
+// Storage
 // -----------------
 export const uploadImage = async (file, userId = null) => {
   if (!BUCKET_ID) throw new Error("BUCKET_ID is not configured (VITE_APPWRITE_BUCKET_ID).");
+
   try {
     const permissions = [Permission.read(Role.any())];
 
@@ -93,32 +99,37 @@ export const uploadImage = async (file, userId = null) => {
   }
 };
 
+// Safe file view URL
 export const getFileViewUrl = (fileId) => {
-  if (!fileId) return "";
+  if (!fileId || !BUCKET_ID || !PROJECT_ID || !import.meta.env.VITE_APPWRITE_ENDPOINT)
+    return "";
   const endpoint = import.meta.env.VITE_APPWRITE_ENDPOINT.replace(/\/$/, "");
   return `${endpoint}/storage/buckets/${BUCKET_ID}/files/${fileId}/view?project=${PROJECT_ID}`;
 };
 
 // -----------------
-// CRUD helpers
+// CRUD Helpers
 // -----------------
 function ensureDbConfig() {
   if (!DATABASE_ID) throw new Error("DATABASE_ID is not configured.");
   if (!COLLECTION_ID) throw new Error("COLLECTION_ID is not configured.");
 }
 
-// Create Post
+// Create Post (image optional)
 export const createPost = async (title, content, imageFile, userId, status = "draft") => {
   ensureDbConfig();
-  if (!imageFile) throw new Error("Image required for post creation.");
   if (!userId) throw new Error("userId is required for post creation.");
 
   try {
-    const fileId = await uploadImage(imageFile, userId); // pass userId here
+    let fileId = null;
+    if (imageFile) {
+      fileId = await uploadImage(imageFile, userId);
+    }
+
     const doc = await databases.createDocument(DATABASE_ID, COLLECTION_ID, ID.unique(), {
       title,
       content,
-      image: fileId,
+      image: fileId || null,
       userID: userId,
       status,
     });
@@ -129,12 +140,11 @@ export const createPost = async (title, content, imageFile, userId, status = "dr
   }
 };
 
-// Get posts optionally filtered by status or userID (server-side)
+// Get posts optionally filtered by status or userID
 export const getPosts = async ({ status = null, userId = null } = {}) => {
   ensureDbConfig();
   try {
     const queries = [];
-
     if (status) queries.push(Query.equal("status", status));
     if (userId) queries.push(Query.equal("userID", userId));
 
@@ -146,7 +156,7 @@ export const getPosts = async ({ status = null, userId = null } = {}) => {
   }
 };
 
-// Get single post
+// Get single post by ID
 export const getPost = async (id) => {
   ensureDbConfig();
   try {
@@ -157,13 +167,17 @@ export const getPost = async (id) => {
   }
 };
 
-// Update Post
+// Update Post (image optional)
 export const updatePost = async (id, title, content, imageFile, status) => {
   ensureDbConfig();
   try {
     const payload = { title, content };
-    if (imageFile) payload.image = await uploadImage(imageFile);
-    if (status) payload.status = status; // allow updating status
+
+    if (imageFile) {
+      payload.image = await uploadImage(imageFile);
+    }
+    if (status) payload.status = status;
+
     return await databases.updateDocument(DATABASE_ID, COLLECTION_ID, id, payload);
   } catch (err) {
     console.error("updatePost error:", err);

@@ -123,7 +123,15 @@ export default function Dashboard() {
         >
           ➕ Create New Post
         </Link>
+        <Link
+          to="/create-post-enhanced"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition"
+        >
+          ➕ Create New Post Enhanced
+        </Link>
       </div>
+
+      
 
       {error && <div className="text-red-600 mb-4">{error}</div>}
 
@@ -140,7 +148,7 @@ export default function Dashboard() {
                 <img
                   src={getFileViewUrl(p.image)}
                   alt={p.title}
-                  className="w-full h-full object-cover rounded mb-3"
+                  className="w-full h-auto object-cover rounded mb-3"
                 />
               )}
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
