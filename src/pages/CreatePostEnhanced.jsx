@@ -3,6 +3,8 @@ import React, { useState, useRef, useLayoutEffect, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPost, getCurrentUser } from "../services/appwrite";
 import mermaid from "mermaid";
+import Cropper from "react-easy-crop";
+
 
 // Initialize mermaid
 mermaid.initialize({ startOnLoad: false, theme: "default" });
@@ -62,6 +64,16 @@ export default function CreatePostEnhanced() {
   const [mermaidPreviews, setMermaidPreviews] = useState({});
   const [isDragging, setIsDragging] = useState(false);
   const [copiedId, setCopiedId] = useState(null); // changed to store block id that was copied
+
+  // image edit
+  const [editingImage, setEditingImage] = useState(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+
+  const onCropComplete = (croppedArea, croppedAreaPixels) => {
+  setCroppedAreaPixels(croppedAreaPixels);
+};
 
   // User state (fetch current user if needed)
   const [user, setUser] = useState(null);
@@ -156,14 +168,29 @@ export default function CreatePostEnhanced() {
   };
 
   const handleBlockInput = (id, html) => {
-    const text = html.replace(/<[^>]*>?/gm, "");
-    if (text.startsWith("/")) {
-      setSlashMenuId(id);
-    } else if (slashMenuId === id) {
-      setSlashMenuId(null);
-    }
-    setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, content: html } : b)));
-  };
+  const text = html.replace(/<[^>]*>?/gm, "").trim(); // plain text
+
+  // Show slash menu if starts with "/"
+  if (text.startsWith("/")) {
+    setSlashMenuId(id);
+  } else if (slashMenuId === id) {
+    setSlashMenuId(null);
+  }
+
+  setBlocks((prevBlocks) =>
+    prevBlocks.map((b) => {
+      if (b.id === id) {
+        // ✅ New: convert '---' to separator block
+        if (text === "---") {
+          return { ...b, type: "separator", content: "" };
+        }
+        return { ...b, content: html };
+      }
+      return b;
+    })
+  );
+};
+
 
   const handleCodeInput = (id, value) => {
     setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, content: value } : b)));
@@ -172,6 +199,8 @@ export default function CreatePostEnhanced() {
   const handleLanguageChange = (id, language) => {
     setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, language } : b)));
   };
+
+  
 
   // Copy handler that accepts block id
   const handleCopy = async (blockId) => {
@@ -422,6 +451,64 @@ export default function CreatePostEnhanced() {
       setLoading(false);
     }
   };
+
+  // utils to get the cropped image from cropper
+const getCroppedImg = (imageSrc, crop) => {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.src = imageSrc;
+    image.crossOrigin = "anonymous";
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = crop.width;
+      canvas.height = crop.height;
+      const ctx = canvas.getContext("2d");
+
+      ctx.drawImage(
+        image,
+        crop.x,
+        crop.y,
+        crop.width,
+        crop.height,
+        0,
+        0,
+        crop.width,
+        crop.height
+      );
+
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error("Canvas is empty"));
+          return;
+        }
+        // Correct: pass blob object to URL.createObjectURL
+        const fileUrl = window.URL.createObjectURL(blob);
+        resolve(fileUrl);
+      }, "image/jpeg");
+    };
+    image.onerror = (err) => reject(err);
+  });
+};
+
+const saveCroppedImage = async () => {
+  try {
+    if (!croppedAreaPixels || !editingImage) return;
+
+    const croppedImageUrl = await getCroppedImg(editingImage.src, croppedAreaPixels);
+
+    // Update the image block in your blocks state
+    setBlocks((prev) =>
+      prev.map((b) =>
+        b.id === editingImage.id ? { ...b, src: croppedImageUrl } : b
+      )
+    );
+
+    setEditingImage(null);
+  } catch (error) {
+    console.error("Failed to crop image:", error);
+  }
+};
+
   // ---------- end handleSubmit ----------
 
   return (
@@ -576,8 +663,30 @@ export default function CreatePostEnhanced() {
                   </div>
                 )}
               </div>
+            ):
+            b.type === "separator" ? (
+            <hr className="border-t border-gray-300 dark:border-gray-600 my-4" />
             ) : b.type === "image" ? (
-              <img src={b.src} alt="uploaded" className="rounded-lg max-h-96 object-cover mx-auto shadow-md" />
+              <div className="relative w-full mx-auto my-2">
+                <img
+                  src={b.src}
+                  alt="uploaded"
+                  className="rounded-lg max-h-96 object-cover shadow-md cursor-pointer"
+                  onClick={() => {
+                    // Open modal for editing
+                    setEditingImage({ id: b.id, src: b.src });
+                  }}
+                />
+                {/* Optional overlay buttons */}
+                <div className="absolute top-2 right-2 flex space-x-2">
+                  <button
+                    onClick={() => setEditingImage({ id: b.id, src: b.src })}
+                    className="cursor-pointer scale-130 bg-gray-800 text-white px-3 py-2 rounded-md text-sm hover:bg-gray-700 "
+                  >
+                    Edit
+                  </button>
+                </div>
+              </div>
             ) : (
               <div className="relative w-full min-h-8">
                 <div
@@ -587,14 +696,77 @@ export default function CreatePostEnhanced() {
                   onInput={(e) => handleBlockInput(b.id, e.currentTarget.innerHTML)}
                   onKeyDown={(e) => handleKeyDown(e, index)}
                   className={`w-full p-2 bg-transparent focus:outline-none text-gray-800 dark:text-gray-200 ${
-                    b.type === "H1" ? "text-4xl font-bold" : b.type === "H2" ? "text-3xl font-semibold" : b.type === "H3" ? "text-2xl font-medium" : "text-base"
+                    b.type === "H1"
+                      ? "text-4xl font-bold"
+                      : b.type === "H2"
+                      ? "text-3xl font-semibold"
+                      : b.type === "H3"
+                      ? "text-2xl font-medium"
+                      : "text-base"
                   }`}
                 />
                 {b.content.replace(/<[^>]*>?/gm, "") === "" && (
-                  <span className="absolute top-2 left-2 text-gray-400 dark:text-gray-500 pointer-events-none select-none text-base">Type '/' for commands</span>
+                  <span className="absolute top-2 left-2 text-gray-400 dark:text-gray-500 pointer-events-none select-none text-base">
+                    Type '/' for commands
+                  </span>
                 )}
               </div>
             )}
+
+            {editingImage && (
+                <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+                  <div className="bg-white dark:bg-gray-800 p-4 rounded-lg w-11/12 max-w-5xl h-[80vh] relative flex flex-col">
+                    {/* Close button */}
+                    <button
+                      className="cursor-pointer absolute top-4 right-4 text-gray-700 dark:text-gray-200 font-bold text-2xl z-50"
+                      onClick={() => setEditingImage(null)}
+                    >
+                      ×
+                    </button>
+
+                    {/* Cropper */}
+                    <div className="flex-1 relative">
+                      <Cropper
+                        image={editingImage.src}
+                        crop={crop}
+                        zoom={zoom}
+                        aspect={4 / 3} // You can make this dynamic if needed
+                        onCropChange={setCrop}
+                        onZoomChange={setZoom}
+                        onCropComplete={onCropComplete}
+                        objectFit="contain"
+                      />
+                    </div>
+
+                    {/* Controls */}
+                    <div className="mt-4 flex justify-between items-center">
+                      <input
+                        type="range"
+                        min={1}
+                        max={3}
+                        step={0.01}
+                        value={zoom}
+                        onChange={(e) => setZoom(Number(e.target.value))}
+                        className="cursor-pointer w-full mr-4"
+                      />
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={saveCroppedImage}
+                          className="cursor-pointer bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingImage(null)}
+                          className="cursor-pointer bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded hover:bg-gray-400"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
             {/* Slash menu */}
             {slashMenuId === b.id && (
@@ -620,7 +792,22 @@ export default function CreatePostEnhanced() {
       </div>
 
       {/* Footer */}
-      <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+      <div
+        className="flex justify-between items-center mt-15 pt-6 border-t border-gray-200 dark:border-gray-700 cursor-text"
+        onClick={() => {
+          const lastBlock = blocks[blocks.length - 1];
+          // If last block is empty paragraph, just focus it
+          if (lastBlock.type === "paragraph" && lastBlock.content.trim() === "") {
+            setFocusNextId(lastBlock.id);
+            return;
+          }
+
+          // If last block is code or image, create a new paragraph block
+          if (lastBlock.type === "code" || lastBlock.type === "image" || lastBlock.type === "separator" || lastBlock.content.trim() !== "") {
+            addBlock(blocks.length - 1, "paragraph", "");
+          }
+        }}
+      >
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
@@ -639,9 +826,10 @@ export default function CreatePostEnhanced() {
           {loading ? "Publishing..." : "Publish Post"}
         </button>
       </div>
-    </div>
-  );
-}
+
+          </div>
+        );
+      }
 
 {/** choose option b
 import React, { useEffect, useState } from "react";

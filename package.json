@@ -17,6 +17,7 @@
     "mermaid": "^11.12.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "react-easy-crop": "^5.5.3",
     "react-hook-form": "^7.65.0",
     "react-router-dom": "^7.9.4",
     "uuid": "^13.0.0"
