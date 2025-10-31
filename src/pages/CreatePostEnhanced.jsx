@@ -749,8 +749,8 @@ const toggleTableHeader = (blockId) => {
                   : "#6b7280";
               return `
                 <div style="display: flex; gap: 12px; padding: 16px; border-radius: 8px; border-left: 4px solid ${calloutBorderColor}; background-color: ${calloutBgColor}; margin: 12px 0;">
-                  <span style="font-size: 1.5em;">${b.icon || "💡"}</span>
-                  <div style="flex: 1;">${b.content}</div>
+                  <span style="font-size: 1.5em; color: #111827;">${b.icon || "💡"}</span>
+                  <div style="flex: 1; color: #111827;">${b.content}</div>
                 </div>
               `;
             case "quote":
@@ -768,16 +768,16 @@ const toggleTableHeader = (blockId) => {
                   const text = heading.content.replace(/<[^>]*>?/gm, "").trim();
                   const marginLeft = level === 0 ? "0" : level === 1 ? "16px" : "32px";
                   const fontWeight = level === 0 ? "bold" : "normal";
-                  return `<div style="margin-left: ${marginLeft}; font-weight: ${fontWeight}; margin-bottom: 8px;">${text}</div>`;
+                  return `<div style="margin-left: ${marginLeft}; font-weight: ${fontWeight}; margin-bottom: 8px; color: #111827;">${text}</div>`;
                 })
                 .join("");
               return `
-                <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 12px 0;">
-                  <div style="font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                    <span>📑</span>
-                    <span>Table of Contents</span>
+                <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 12px 0; color: #111827;">
+                  <div style="font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: #111827;">
+                    <span style="color: #111827;">📑</span>
+                    <span style="color: #111827;">Table of Contents</span>
                   </div>
-                  <div>${tocItems || '<div style="color: #9ca3af; font-style: italic;">No headings found</div>'}</div>
+                  <div style="color: #111827;">${tocItems || '<div style="color: #9ca3af; font-style: italic;">No headings found</div>'}</div>
                 </div>
               `;
             default:

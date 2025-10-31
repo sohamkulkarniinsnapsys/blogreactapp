@@ -282,20 +282,13 @@ export default function PostDetails() {
           color: #d1d5db !important;
         }
         
-        /* Callout styling - ensure visibility */
+        /* Callout styling - inline styles handle colors */
         .prose > div[style*="border-left"][style*="background-color"] {
           display: flex !important;
           gap: 12px !important;
           padding: 16px !important;
           border-radius: 8px !important;
           margin: 16px 0 !important;
-        }
-        .prose > div[style*="border-left"] > div {
-          flex: 1 !important;
-          color: #111827 !important;
-        }
-        .dark .prose > div[style*="border-left"] > div {
-          color: #f9fafb !important;
         }
         
         /* List styling */
@@ -369,23 +362,43 @@ export default function PostDetails() {
           color: #d1d5db !important;
         }
         
-        /* TOC styling */
+        /* TOC styling - inline styles handle colors */
         .prose > div[style*="background-color: #f9fafb"] {
-          background-color: #f9fafb !important;
-          border: 1px solid #e5e7eb !important;
+          display: block !important;
           border-radius: 8px !important;
           padding: 16px !important;
           margin: 16px 0 !important;
         }
-        .dark .prose > div[style*="background-color: #f9fafb"] {
-          background-color: #1f2937 !important;
-          border-color: #374151 !important;
+        
+        /* Mermaid SVG styling - ensure text is visible */
+        .prose svg {
+          max-width: 100% !important;
+          height: auto !important;
         }
-        .prose > div[style*="background-color: #f9fafb"] div {
-          color: #111827 !important;
+        .prose svg text,
+        .prose svg .nodeLabel,
+        .prose svg .edgeLabel {
+          fill: #111827 !important;
+          font-family: Arial, sans-serif !important;
         }
-        .dark .prose > div[style*="background-color: #f9fafb"] div {
-          color: #f9fafb !important;
+        .dark .prose svg text,
+        .dark .prose svg .nodeLabel,
+        .dark .prose svg .edgeLabel {
+          fill: #f9fafb !important;
+        }
+        .prose svg .node rect,
+        .prose svg .node circle,
+        .prose svg .node ellipse,
+        .prose svg .node polygon {
+          fill: #e5e7eb !important;
+          stroke: #111827 !important;
+        }
+        .dark .prose svg .node rect,
+        .dark .prose svg .node circle,
+        .dark .prose svg .node ellipse,
+        .dark .prose svg .node polygon {
+          fill: #374151 !important;
+          stroke: #f9fafb !important;
         }
       `}</style>
       <div className="container mx-auto px-6 py-10 max-w-3xl">
@@ -396,7 +409,7 @@ export default function PostDetails() {
             className="w-full h-full object-cover rounded mb-6"
           />
         )}
-        <h1 className="text-3xl font-bold mb-4 text-gray-900 dark:text-gray-100">{post.title}</h1>
+        <h1 className="text-4xl md:text-5xl font-bold mb-6 text-gray-900 dark:text-gray-100">{post.title}</h1>
         <div className="prose dark:prose-invert max-w-none">
           {/* render content into ref then post-process for mermaid */}
           <div ref={containerRef} />
