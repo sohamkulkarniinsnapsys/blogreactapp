@@ -5,23 +5,28 @@ import { createPost, getCurrentUser } from "../services/appwrite";
 import mermaid from "mermaid";
 import Cropper from "react-easy-crop";
 
-
 // Initialize mermaid
 mermaid.initialize({ startOnLoad: false, theme: "default" });
 
 const slashCommands = {
-  H1: "H1",
-  H2: "H2",
-  H3: "H3",
-  paragraph: "Text",
+  h1: "H1",
+  h2: "H2",
+  h3: "H3",
+  text: "Text",
   code: "Code",
   image: "Image",
+  img: "Image",
   table: "Table View",
   bulleted: "Bulleted List",
+  bullet: "Bulleted List",
+  ul: "Bulleted List",
   numbered: "Numbered List",
+  number: "Numbered List",
+  ol: "Numbered List",
   callout: "Callout",
   quote: "Quote",
   toc: "Table of Contents",
+  tableofcontents: "Table of Contents",
 };
 
 const codingLanguages = [
@@ -67,10 +72,11 @@ export default function CreatePostEnhanced() {
   const [isHoveringCover, setIsHoveringCover] = useState(false);
   const [isHoveringTitle, setIsHoveringTitle] = useState(false);
   const [slashMenuId, setSlashMenuId] = useState(null);
+  const [slashMenuQuery, setSlashMenuQuery] = useState(""); // Track the typed command
   const [mermaidPreviews, setMermaidPreviews] = useState({});
   const [isDragging, setIsDragging] = useState(false);
-  const [copiedId, setCopiedId] = useState(null); // changed to store block id that was copied
-  const lastEmptyListItem = useRef(null); // Track last empty list item for double-enter detection
+  const [copiedId, setCopiedId] = useState(null);
+  const lastEmptyListItem = useRef(null);
 
   // image edit
   const [editingImage, setEditingImage] = useState(null);
@@ -79,10 +85,10 @@ export default function CreatePostEnhanced() {
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
   const onCropComplete = (croppedArea, croppedAreaPixels) => {
-  setCroppedAreaPixels(croppedAreaPixels);
-};
+    setCroppedAreaPixels(croppedAreaPixels);
+  };
 
-  // User state (fetch current user if needed)
+  // User state
   const [user, setUser] = useState(null);
   useEffect(() => {
     (async () => {
@@ -90,7 +96,6 @@ export default function CreatePostEnhanced() {
         const u = await getCurrentUser();
         setUser(u);
       } catch (err) {
-        // not fatal here; we will show an error on submit if user missing
         console.warn("Could not fetch current user on mount:", err);
       }
     })();
@@ -155,30 +160,30 @@ export default function CreatePostEnhanced() {
 
   const addBlock = (index, type = "paragraph", content = "") => {
     const base = {
-    id: crypto.randomUUID(),
-    type,
-    content,
-    ...(type === "code" && { language: "javascript" }),
-  };
+      id: crypto.randomUUID(),
+      type,
+      content,
+      ...(type === "code" && { language: "javascript" }),
+    };
 
-  const newBlock =
-    type === "table"
-      ? {
-          ...base,
-          type: "table",
-          rows: 3,
-          cols: 3,
-          data: Array(3).fill(null).map(() => Array(3).fill("")),
-          hasHeader: true,
-        }
-      : type === "list"
-      ? {
-          ...base,
-          type: "list",
-          style: "unordered", // default; can be "ordered"
-          items: [""] // one empty item by default
-        }
-      : base;
+    const newBlock =
+      type === "table"
+        ? {
+            ...base,
+            type: "table",
+            rows: 3,
+            cols: 3,
+            data: Array(3).fill(null).map(() => Array(3).fill("")),
+            hasHeader: true,
+          }
+        : type === "list"
+        ? {
+            ...base,
+            type: "list",
+            style: "unordered",
+            items: [""]
+          }
+        : base;
 
     const updated = [...blocks];
     updated.splice(index + 1, 0, newBlock);
@@ -195,8 +200,8 @@ export default function CreatePostEnhanced() {
   };
 
   const removeBlockById = (id) => {
-  setBlocks((prev) => {
-      if (prev.length === 1) return prev; // prevent deleting last block
+    setBlocks((prev) => {
+      if (prev.length === 1) return prev;
       const index = prev.findIndex((b) => b.id === id);
       const updated = prev.filter((b) => b.id !== id);
       const nextBlock = updated[index] || updated[index - 1];
@@ -205,31 +210,33 @@ export default function CreatePostEnhanced() {
     });
   };
 
-
   const handleBlockInput = (id, html) => {
-  const text = html.replace(/<[^>]*>?/gm, "").trim(); // plain text
+    const text = html.replace(/<[^>]*>?/gm, "").trim();
 
-  // Show slash menu if starts with "/"
-  if (text.startsWith("/")) {
-    setSlashMenuId(id);
-  } else if (slashMenuId === id) {
-    setSlashMenuId(null);
-  }
+    // Show slash menu if starts with "/"
+    if (text.startsWith("/")) {
+      setSlashMenuId(id);
+      // Extract the command query (everything after the /)
+      const query = text.substring(1).toLowerCase();
+      setSlashMenuQuery(query);
+    } else if (slashMenuId === id) {
+      setSlashMenuId(null);
+      setSlashMenuQuery("");
+    }
 
-  setBlocks((prevBlocks) =>
-    prevBlocks.map((b) => {
-      if (b.id === id) {
-        // ✅ New: convert '---' to separator block
-        if (text === "---") {
-          return { ...b, type: "separator", content: "" };
+    setBlocks((prevBlocks) =>
+      prevBlocks.map((b) => {
+        if (b.id === id) {
+          // Convert '---' to separator block
+          if (text === "---") {
+            return { ...b, type: "separator", content: "" };
+          }
+          return { ...b, content: html };
         }
-        return { ...b, content: html };
-      }
-      return b;
-    })
-  );
-};
-
+        return b;
+      })
+    );
+  };
 
   const handleCodeInput = (id, value) => {
     setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, content: value } : b)));
@@ -239,102 +246,96 @@ export default function CreatePostEnhanced() {
     setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, language } : b)));
   };
 
-  // Update a specific cell's content
-const handleTableCellChange = (blockId, rowIndex, colIndex, value) => {
-  setBlocks((prev) =>
-    prev.map((b) => {
-      if (b.id === blockId && b.type === "table") {
-        const newData = b.data.map((row, ri) =>
-          row.map((cell, ci) => (ri === rowIndex && ci === colIndex ? value : cell))
-        );
-        return { ...b, data: newData };
-      }
-      return b;
-    })
-  );
-};
+  // Table functions
+  const handleTableCellChange = (blockId, rowIndex, colIndex, value) => {
+    setBlocks((prev) =>
+      prev.map((b) => {
+        if (b.id === blockId && b.type === "table") {
+          const newData = b.data.map((row, ri) =>
+            row.map((cell, ci) => (ri === rowIndex && ci === colIndex ? value : cell))
+          );
+          return { ...b, data: newData };
+        }
+        return b;
+      })
+    );
+  };
 
-// Add a new row at the bottom
-const addTableRow = (blockId) => {
-  setBlocks((prev) =>
-    prev.map((b) => {
-      if (b.id === blockId && b.type === "table") {
-        const newRow = Array(b.cols).fill("");
-        return {
-          ...b,
-          rows: b.rows + 1,
-          data: [...b.data, newRow],
-        };
-      }
-      return b;
-    })
-  );
-};
+  const addTableRow = (blockId) => {
+    setBlocks((prev) =>
+      prev.map((b) => {
+        if (b.id === blockId && b.type === "table") {
+          const newRow = Array(b.cols).fill("");
+          return {
+            ...b,
+            rows: b.rows + 1,
+            data: [...b.data, newRow],
+          };
+        }
+        return b;
+      })
+    );
+  };
 
-// Add a new column on the right
-const addTableColumn = (blockId) => {
-  setBlocks((prev) =>
-    prev.map((b) => {
-      if (b.id === blockId && b.type === "table") {
-        const newData = b.data.map((row) => [...row, ""]);
-        return {
-          ...b,
-          cols: b.cols + 1,
-          data: newData,
-        };
-      }
-      return b;
-    })
-  );
-};
+  const addTableColumn = (blockId) => {
+    setBlocks((prev) =>
+      prev.map((b) => {
+        if (b.id === blockId && b.type === "table") {
+          const newData = b.data.map((row) => [...row, ""]);
+          return {
+            ...b,
+            cols: b.cols + 1,
+            data: newData,
+          };
+        }
+        return b;
+      })
+    );
+  };
 
-// Delete a specific row (keep at least 1 row)
-const deleteTableRow = (blockId, rowIndex) => {
-  setBlocks((prev) =>
-    prev.map((b) => {
-      if (b.id === blockId && b.type === "table" && b.rows > 1) {
-        const newData = b.data.filter((_, i) => i !== rowIndex);
-        return {
-          ...b,
-          rows: b.rows - 1,
-          data: newData,
-        };
-      }
-      return b;
-    })
-  );
-};
+  const deleteTableRow = (blockId, rowIndex) => {
+    setBlocks((prev) =>
+      prev.map((b) => {
+        if (b.id === blockId && b.type === "table" && b.rows > 1) {
+          const newData = b.data.filter((_, i) => i !== rowIndex);
+          return {
+            ...b,
+            rows: b.rows - 1,
+            data: newData,
+          };
+        }
+        return b;
+      })
+    );
+  };
 
-// Delete a specific column (keep at least 1 column)
-const deleteTableColumn = (blockId, colIndex) => {
-  setBlocks((prev) =>
-    prev.map((b) => {
-      if (b.id === blockId && b.type === "table" && b.cols > 1) {
-        const newData = b.data.map((row) => row.filter((_, i) => i !== colIndex));
-        return {
-          ...b,
-          cols: b.cols - 1,
-          data: newData,
-        };
-      }
-      return b;
-    })
-  );
-};
+  const deleteTableColumn = (blockId, colIndex) => {
+    setBlocks((prev) =>
+      prev.map((b) => {
+        if (b.id === blockId && b.type === "table" && b.cols > 1) {
+          const newData = b.data.map((row) => row.filter((_, i) => i !== colIndex));
+          return {
+            ...b,
+            cols: b.cols - 1,
+            data: newData,
+          };
+        }
+        return b;
+      })
+    );
+  };
 
-// Toggle header row styling
-const toggleTableHeader = (blockId) => {
-  setBlocks((prev) =>
-    prev.map((b) => {
-      if (b.id === blockId && b.type === "table") {
-        return { ...b, hasHeader: !b.hasHeader };
-      }
-      return b;
-    })
-  );
-};
+  const toggleTableHeader = (blockId) => {
+    setBlocks((prev) =>
+      prev.map((b) => {
+        if (b.id === blockId && b.type === "table") {
+          return { ...b, hasHeader: !b.hasHeader };
+        }
+        return b;
+      })
+    );
+  };
 
-  // Copy handler that accepts block id
   const handleCopy = async (blockId) => {
     try {
       const block = blocks.find((b) => b.id === blockId);
@@ -343,31 +344,22 @@ const toggleTableHeader = (blockId) => {
       let textToCopy = "";
 
       if (block.type === "code") {
-        // For code blocks, copy raw code from state
         textToCopy = block.content || "";
       } else if (block.type === "image") {
-        // For image blocks, copy the image src (you can change to copy markdown img or nothing)
         textToCopy = block.src || "";
       } else if (block.type === "table") {
-      // Copy table as TSV (Tab-Separated Values)
-      textToCopy = block.data.map(row => row.join("\t")).join("\n");
-    } else {
-        // For contentEditable blocks, prefer what's actually visible in the DOM
+        textToCopy = block.data.map(row => row.join("\t")).join("\n");
+      } else {
         const el = blockRefs.current[blockId];
         if (el) {
-          // use innerText to get only visible text (no HTML)
           textToCopy = (el.innerText || "").trim();
         }
-        // fallback to stored content (stripped) if DOM missing
         if (!textToCopy) {
           textToCopy = (block.content || "").replace(/<[^>]*>?/gm, "").trim();
         }
       }
 
-      if (!textToCopy) {
-        // nothing to copy
-        return;
-      }
+      if (!textToCopy) return;
 
       await navigator.clipboard.writeText(textToCopy);
       setCopiedId(blockId);
@@ -380,68 +372,68 @@ const toggleTableHeader = (blockId) => {
   const handleKeyDown = (e, index) => {
     const block = blocks[index];
 
-    // Special handling for lists (double Enter to exit)
+    // Special handling for lists
     if (block.type === "bulleted" || block.type === "numbered") {
       if (e.key === "Enter") {
-        // Get the current list element
         const listEl = blockRefs.current[block.id];
         if (!listEl) return;
 
-        // Check if we're in an empty list item
         const selection = window.getSelection();
         if (selection.rangeCount > 0) {
           const range = selection.getRangeAt(0);
           const currentNode = range.startContainer;
           
-          // Find the parent <li> element
           let liElement = currentNode.nodeType === Node.TEXT_NODE ? currentNode.parentElement : currentNode;
           while (liElement && liElement.tagName !== 'LI' && liElement !== listEl) {
             liElement = liElement.parentElement;
           }
 
-          // Check if this <li> is empty or only has whitespace
           if (liElement && liElement.tagName === 'LI') {
             const liText = liElement.textContent.trim();
             
             if (liText === '') {
-              // Empty list item - check if this is the second Enter press
               if (lastEmptyListItem.current === block.id) {
-                // Second Enter on empty item - exit list and create paragraph
                 e.preventDefault();
-                
-                // Remove the empty <li>
                 liElement.remove();
-                
-                // Update block content
                 setBlocks((prev) =>
                   prev.map((b) => (b.id === block.id ? { ...b, content: listEl.innerHTML } : b))
                 );
-                
-                // Create new paragraph block after this list
                 addBlock(index, "paragraph");
-                
-                // Reset tracker
                 lastEmptyListItem.current = null;
                 return;
               } else {
-                // First Enter on empty item - track it
                 lastEmptyListItem.current = block.id;
               }
             } else {
-              // Non-empty item - reset tracker
               lastEmptyListItem.current = null;
             }
           }
         }
       } else {
-        // Any other key - reset tracker
         lastEmptyListItem.current = null;
       }
-      return; // Let browser handle list editing
+      return;
     }
 
     // Don't handle special keys for code blocks and tables
     if (block.type === "code" || block.type === "table") return;
+
+    // NEW: Handle Enter key when slash menu is open
+    if (e.key === "Enter" && slashMenuId === block.id) {
+      e.preventDefault();
+      
+      // Check if the query matches any command
+      const matchedCommand = slashCommands[slashMenuQuery];
+      
+      if (matchedCommand) {
+        // Apply the matched command
+        applyFormat(block.id, matchedCommand);
+      } else {
+        // If no match, just create a new paragraph (default Enter behavior)
+        addBlock(index, "paragraph");
+      }
+      return;
+    }
 
     if (e.key === "Enter") {
       e.preventDefault();
@@ -452,11 +444,13 @@ const toggleTableHeader = (blockId) => {
       addBlock(index, "paragraph");
       return;
     }
+    
     if (e.key === "Backspace" && block.content.replace(/<[^>]*>?/gm, "") === "") {
       e.preventDefault();
       removeBlock(index);
       return;
     }
+    
     if (e.key === "ArrowUp" && index > 0) {
       e.preventDefault();
       const prev = blocks[index - 1];
@@ -504,118 +498,114 @@ const toggleTableHeader = (blockId) => {
     let text = el.textContent.replace(/^\/\w*/, "").trim();
     el.innerHTML = text;
 
-        if (type === "Image") {
-          const fileInput = document.createElement("input");
-          fileInput.type = "file";
-          fileInput.accept = "image/*";
-          fileInput.onchange = (e) => {
-          const file = e.target.files[0];
-          if (!file) return;
-          const reader = new FileReader();
-          reader.onloadend = () => {
+    if (type === "Image") {
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = "image/*";
+      fileInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onloadend = () => {
           const dataUrl = reader.result;
-
-          // Ask the user whether to set as cover or insert inline.
-          // OK => Set as cover. Cancel => Insert inline image block.
-          
-            // Insert as an inline image block (existing behavior)
-            const imageBlock = {
-              id: crypto.randomUUID(),
-              type: "image",
-              src: dataUrl,
-              caption: "", // added for captions
-            };
-            const index = blocks.findIndex((b) => b.id === id);
-            const updated = [...blocks];
-            updated.splice(index + 1, 0, imageBlock);
-            setBlocks(updated);
-            setFocusNextId(imageBlock.id);
-          
-         };
-          reader.readAsDataURL(file);
-          };
-          fileInput.click();
-          setSlashMenuId(null);
-          return;
-        }
-
-        // Create callout block
-        if (type === "Callout") {
-          setBlocks((prev) =>
-            prev.map((b) =>
-              b.id === id
-                ? {
-                    ...b,
-                    type: "callout",
-                    content: text,
-                    icon: "💡", // default icon
-                    bgColor: "blue", // default color
-                  }
-                : b
-            )
-          );
-          setFocusNextId(id);
-          setSlashMenuId(null);
-          return;
-        }
-
-        // Create quote block
-        if (type === "Quote") {
-          setBlocks((prev) =>
-            prev.map((b) => (b.id === id ? { ...b, type: "quote", content: text } : b))
-          );
-          setFocusNextId(id);
-          setSlashMenuId(null);
-          return;
-        }
-
-        // Create table of contents block
-        if (type === "Table of Contents") {
-          setBlocks((prev) =>
-            prev.map((b) => (b.id === id ? { ...b, type: "toc", content: "" } : b))
-          );
-          setFocusNextId(id);
-          setSlashMenuId(null);
-          return;
-        }
-
-        // Create list block
-        if (type === "Bulleted List" || type === "Numbered List") {
-          const lines = text.length
-            ? text.split(/\n+/).map((t) => t.trim()).filter(Boolean)
-            : [""];
-          const listTag = type === "Bulleted List" ? "ul" : "ol";
-          const html = `<${listTag}>${lines.map((l) => `<li>${l}</li>`).join("")}</${listTag}>`;
-          el.innerHTML = html;
-          setBlocks((prev) =>
-            prev.map((b) =>
-              b.id === id
-                ? { ...b, type: type === "Bulleted List" ? "bulleted" : "numbered", content: html }
-                : b
-            )
-          );
-          setFocusNextId(id);
-          setSlashMenuId(null);
-          return;
-        }
-
-        if (type === "Table View") {
-          const index = blocks.findIndex((b) => b.id === id);
-          const tableBlock = {
+          const imageBlock = {
             id: crypto.randomUUID(),
-            type: "table",
-            rows: 3,
-            cols: 3,
-            data: Array(3).fill(null).map(() => Array(3).fill("")),
-            hasHeader: true,
+            type: "image",
+            src: dataUrl,
+            caption: "",
           };
+          const index = blocks.findIndex((b) => b.id === id);
           const updated = [...blocks];
-          updated.splice(index + 1, 0, tableBlock);
+          updated.splice(index + 1, 0, imageBlock);
           setBlocks(updated);
-          setFocusNextId(tableBlock.id);
-          setSlashMenuId(null);
-          return;
-        }
+          setFocusNextId(imageBlock.id);
+        };
+        reader.readAsDataURL(file);
+      };
+      fileInput.click();
+      setSlashMenuId(null);
+      setSlashMenuQuery("");
+      return;
+    }
+
+    if (type === "Callout") {
+      setBlocks((prev) =>
+        prev.map((b) =>
+          b.id === id
+            ? {
+                ...b,
+                type: "callout",
+                content: text,
+                icon: "💡",
+                bgColor: "blue",
+              }
+            : b
+        )
+      );
+      setFocusNextId(id);
+      setSlashMenuId(null);
+      setSlashMenuQuery("");
+      return;
+    }
+
+    if (type === "Quote") {
+      setBlocks((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, type: "quote", content: text } : b))
+      );
+      setFocusNextId(id);
+      setSlashMenuId(null);
+      setSlashMenuQuery("");
+      return;
+    }
+
+    if (type === "Table of Contents") {
+      setBlocks((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, type: "toc", content: "" } : b))
+      );
+      setFocusNextId(id);
+      setSlashMenuId(null);
+      setSlashMenuQuery("");
+      return;
+    }
+
+    if (type === "Bulleted List" || type === "Numbered List") {
+      const lines = text.length
+        ? text.split(/\n+/).map((t) => t.trim()).filter(Boolean)
+        : [""];
+      const listTag = type === "Bulleted List" ? "ul" : "ol";
+      const html = `<${listTag}>${lines.map((l) => `<li>${l}</li>`).join("")}</${listTag}>`;
+      el.innerHTML = html;
+      setBlocks((prev) =>
+        prev.map((b) =>
+          b.id === id
+            ? { ...b, type: type === "Bulleted List" ? "bulleted" : "numbered", content: html }
+            : b
+        )
+      );
+      setFocusNextId(id);
+      setSlashMenuId(null);
+      setSlashMenuQuery("");
+      return;
+    }
+
+    if (type === "Table View") {
+      const index = blocks.findIndex((b) => b.id === id);
+      const tableBlock = {
+        id: crypto.randomUUID(),
+        type: "table",
+        rows: 3,
+        cols: 3,
+        data: Array(3).fill(null).map(() => Array(3).fill("")),
+        hasHeader: true,
+      };
+      const updated = [...blocks];
+      updated.splice(index + 1, 0, tableBlock);
+      setBlocks(updated);
+      setFocusNextId(tableBlock.id);
+      setSlashMenuId(null);
+      setSlashMenuQuery("");
+      return;
+    }
 
     if (type === "Code") {
       setBlocks((prev) =>
@@ -627,6 +617,7 @@ const toggleTableHeader = (blockId) => {
 
     setFocusNextId(id);
     setSlashMenuId(null);
+    setSlashMenuQuery("");
   };
 
   // Helper: convert dataURL (base64) to File
@@ -644,7 +635,6 @@ const toggleTableHeader = (blockId) => {
     try {
       return new File([u8arr], filename, { type: mime });
     } catch (err) {
-      // Some older environments may not accept File constructor — fallback to Blob
       const blob = new Blob([u8arr], { type: mime });
       blob.name = filename;
       return blob;
@@ -653,13 +643,10 @@ const toggleTableHeader = (blockId) => {
 
   // ---------- UPDATED handleSubmit ----------
   const handleSubmit = async () => {
-    // Validation: title + content (allow image-only blocks and blocks without content property)
     if (
       !title.trim() ||
       blocks.every((b) => {
-        // Some blocks don't have content property (image, table, toc)
         if (b.type === "image" || b.type === "table" || b.type === "toc") return false;
-        // For blocks with content, check if it's empty
         return !b.content || b.content.replace(/<[^>]*>?/gm, "").trim() === "";
       })
     ) {
@@ -671,7 +658,6 @@ const toggleTableHeader = (blockId) => {
     setLoading(true);
 
     try {
-      // Ensure we have a logged-in user (try fetching again if missing)
       let currentUser = user;
       if (!currentUser) {
         try {
@@ -682,10 +668,6 @@ const toggleTableHeader = (blockId) => {
         }
       }
 
-      // Convert blocks -> HTML
-      // NOTE: inline images (b.type === "image") keep their `src` values (likely data URLs).
-      // If you want to upload inline images to Appwrite storage instead (to avoid big HTML strings),
-      // we can add that upload step in a follow-up.
       const contentHtml = blocks
         .map((b) => {
           switch (b.type) {
@@ -715,7 +697,6 @@ const toggleTableHeader = (blockId) => {
               `;
               return tableHtml;
             case "image":
-              // keep whatever src the block has (base64 or remote URL)
               return `
               <figure style="text-align:center;">
                 <img src="${b.src}" alt="uploaded" style="max-width:100%; border-radius:8px; align-items: center" />
@@ -724,7 +705,6 @@ const toggleTableHeader = (blockId) => {
             `;
             case "bulleted":
             case "numbered":
-              // Lists already have proper HTML in content
               return b.content;
             case "callout":
               const calloutBgColor =
@@ -760,7 +740,6 @@ const toggleTableHeader = (blockId) => {
                 </blockquote>
               `;
             case "toc":
-              // Generate TOC HTML from headings
               const tocItems = blocks
                 .filter((block) => block.type === "H1" || block.type === "H2" || block.type === "H3")
                 .map((heading) => {
@@ -786,30 +765,23 @@ const toggleTableHeader = (blockId) => {
         })
         .join("");
 
-      // Prepare cover image as File if it exists and is a data URL
       let coverFile = null;
       if (coverImage) {
-        // If coverImage is a File already (rare), pass it through; otherwise convert data URL -> File
         if (typeof coverImage === "string" && coverImage.startsWith("data:")) {
           coverFile = dataURLtoFile(coverImage, "cover.png");
         } else if (coverImage instanceof File || coverImage instanceof Blob) {
           coverFile = coverImage;
         } else {
-          // fallback: ignore cover
           coverFile = null;
         }
       }
 
-      // Call createPost (same signature as your TinyMCE version)
-      // createPost(title, contentHtml, coverFile, authorId, status)
       const newPost = await createPost(title, contentHtml, coverFile, currentUser.$id || currentUser.id, status);
 
-      // If createPost returns successfully, navigate to the newly created post
       const createdId = newPost?.$id || newPost?.id || newPost?.postId || null;
       if (createdId) {
         navigate(`/post/${createdId}`);
       } else {
-        // If createPost succeeded but didn't return id, just log and go home
         console.warn("createPost returned but did not include id:", newPost);
         navigate("/");
       }
@@ -822,63 +794,78 @@ const toggleTableHeader = (blockId) => {
   };
 
   // utils to get the cropped image from cropper
-const getCroppedImg = (imageSrc, crop) => {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.src = imageSrc;
-    image.crossOrigin = "anonymous";
-    image.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = crop.width;
-      canvas.height = crop.height;
-      const ctx = canvas.getContext("2d");
+  const getCroppedImg = (imageSrc, crop) => {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.src = imageSrc;
+      image.crossOrigin = "anonymous";
+      image.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = crop.width;
+        canvas.height = crop.height;
+        const ctx = canvas.getContext("2d");
 
-      ctx.drawImage(
-        image,
-        crop.x,
-        crop.y,
-        crop.width,
-        crop.height,
-        0,
-        0,
-        crop.width,
-        crop.height
+        ctx.drawImage(
+          image,
+          crop.x,
+          crop.y,
+          crop.width,
+          crop.height,
+          0,
+          0,
+          crop.width,
+          crop.height
+        );
+
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error("Canvas is empty"));
+            return;
+          }
+          // Correct: pass blob object to URL.createObjectURL
+          const fileUrl = window.URL.createObjectURL(blob);
+          resolve(fileUrl);
+        }, "image/jpeg");
+      };
+      image.onerror = (err) => reject(err);
+    });
+  };
+
+  const saveCroppedImage = async () => {
+    try {
+      if (!croppedAreaPixels || !editingImage) return;
+
+      const croppedImageUrl = await getCroppedImg(editingImage.src, croppedAreaPixels);
+
+      // Update the image block in your blocks state
+      setBlocks((prev) =>
+        prev.map((b) =>
+          b.id === editingImage.id ? { ...b, src: croppedImageUrl } : b
+        )
       );
 
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          reject(new Error("Canvas is empty"));
-          return;
-        }
-        // Correct: pass blob object to URL.createObjectURL
-        const fileUrl = window.URL.createObjectURL(blob);
-        resolve(fileUrl);
-      }, "image/jpeg");
-    };
-    image.onerror = (err) => reject(err);
-  });
-};
-
-const saveCroppedImage = async () => {
-  try {
-    if (!croppedAreaPixels || !editingImage) return;
-
-    const croppedImageUrl = await getCroppedImg(editingImage.src, croppedAreaPixels);
-
-    // Update the image block in your blocks state
-    setBlocks((prev) =>
-      prev.map((b) =>
-        b.id === editingImage.id ? { ...b, src: croppedImageUrl } : b
-      )
-    );
-
-    setEditingImage(null);
-  } catch (error) {
-    console.error("Failed to crop image:", error);
-  }
-};
+      setEditingImage(null);
+    } catch (error) {
+      console.error("Failed to crop image:", error);
+    }
+  };
 
   // ---------- end handleSubmit ----------
+
+  // ---------- UI helpers ----------
+  // Filter slash commands based on query
+  const getFilteredCommands = () => {
+    if (!slashMenuQuery) {
+      return Object.entries(slashCommands);
+    }
+    
+    const query = slashMenuQuery.toLowerCase();
+    const filtered = Object.entries(slashCommands).filter(([cmd]) => 
+      cmd.toLowerCase().startsWith(query)
+    );
+    
+    return filtered;
+  };
 
   return (
     <>
@@ -900,7 +887,6 @@ const saveCroppedImage = async () => {
         [contenteditable] ol {
           list-style-type: decimal;
         }
-        /* Ensure list items display properly */
         [contenteditable] ul li::marker,
         [contenteditable] ol li::marker {
           unicode-bidi: isolate;
@@ -949,7 +935,7 @@ const saveCroppedImage = async () => {
         )}
       </div>
 
-            {/* Title */}
+      {/* Title */}
       <div
         className="relative group mb-8"
         onMouseEnter={() => setIsHoveringTitle(true)}
@@ -975,7 +961,6 @@ const saveCroppedImage = async () => {
           className="w-full text-5xl font-bold p-3 bg-transparent focus:outline-none text-gray-900 dark:text-white placeholder-gray-400"
         />
 
-        {/* Add Cover Image button (right side, shows on hover like Notion) */}
         <div className="absolute right-3 top-3 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition">
           <label
             title="Add cover image"
@@ -994,7 +979,6 @@ const saveCroppedImage = async () => {
           </label>
         </div>
 
-        {/* If there's already a cover, show small 'Change / Remove' controls (optional) */}
         {coverImage && (
           <div className="absolute right-3 top-12 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition">
             <div className="flex gap-2">
@@ -1015,7 +999,6 @@ const saveCroppedImage = async () => {
           </div>
         )}
       </div>
-
 
       {/* Blocks */}
       <div className="space-y-2">
@@ -1039,7 +1022,6 @@ const saveCroppedImage = async () => {
             {/* Code Block */}
             {b.type === "code" ? (
               <div className="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                {/* Code Header */}
                 <div className="flex items-center justify-between px-4 py-2 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                   <select
                     value={b.language}
@@ -1062,7 +1044,6 @@ const saveCroppedImage = async () => {
                   </button>
                 </div>
 
-                {/* Code Input */}
                 <textarea
                   ref={(el) => (blockRefs.current[b.id] = el)}
                   value={b.content}
@@ -1088,7 +1069,6 @@ const saveCroppedImage = async () => {
                   spellCheck="false"
                 />
 
-                {/* Mermaid Preview */}
                 {b.language === "mermaid" && b.content && (
                   <div className="border-t border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 p-4">
                     <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-semibold">Preview:</div>
