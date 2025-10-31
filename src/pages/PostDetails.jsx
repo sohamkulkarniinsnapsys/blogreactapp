@@ -50,6 +50,34 @@ export default function PostDetails() {
     return result;
   };
 
+  // ---- Normalization helpers (same as Post.jsx) ----
+  const decodeHtmlEntities = (str = "") => {
+    const txt = document.createElement("textarea");
+    txt.innerHTML = str;
+    return txt.value;
+  };
+
+  const looksLikeHtml = (s = "") => /<[^>]+>/.test(s);
+  const looksLikeMarkdownHeadings = (s = "") => /^#{1,6}\s+/m.test(s);
+
+  const convertMarkdownHeadingsToHtml = (s = "") => {
+    return s.replace(/^######\s+(.+)$/gim, "<h6>$1</h6>")
+            .replace(/^#####\s+(.+)$/gim, "<h5>$1</h5>")
+            .replace(/^####\s+(.+)$/gim, "<h4>$1</h4>")
+            .replace(/^###\s+(.+)$/gim, "<h3>$1</h3>")
+            .replace(/^##\s+(.+)$/gim, "<h2>$1</h2>")
+            .replace(/^#\s+(.+)$/gim, "<h1>$1</h1>");
+  };
+
+  const sanitizeIfAvailable = (html) => {
+    if (window.DOMPurify && typeof window.DOMPurify.sanitize === "function") {
+      return window.DOMPurify.sanitize(html);
+    }
+    return html;
+  };
+
+  // ---- End helpers ----
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -87,10 +115,20 @@ export default function PostDetails() {
     container.innerHTML = "";
 
     const contentStr = typeof post.content === "string" ? post.content : "";
-    const trimmed = contentStr.trim();
+    // decode first so we can detect mermaid/plain/html properly
+    let decoded = decodeHtmlEntities(contentStr);
+
+    // If it looks like markdown headings (but no HTML), convert them
+    let renderable = decoded;
+    if (!looksLikeHtml(decoded) && looksLikeMarkdownHeadings(decoded)) {
+      renderable = convertMarkdownHeadingsToHtml(decoded);
+    }
+
+    const trimmed = renderable.trim();
 
     const looksLikeMermaid = (() => {
       if (!trimmed) return false;
+      // If we have HTML tags, it's not a plain mermaid block
       const hasHtmlTags = /<[^>]+>/.test(trimmed);
       if (hasHtmlTags) return false;
       const mermaidKeywords = [
@@ -112,10 +150,15 @@ export default function PostDetails() {
     if (looksLikeMermaid) {
       const wrapper = document.createElement("div");
       wrapper.className = "post-mermaid";
-      wrapper.textContent = contentStr;
+      wrapper.textContent = contentStr; // use original raw content (mermaid code) for rendering
       container.appendChild(wrapper);
     } else {
-      container.innerHTML = contentStr;
+      // If renderable contains HTML tags, treat them as HTML; otherwise insert as text / converted headings.
+      if (looksLikeHtml(renderable)) {
+        container.innerHTML = sanitizeIfAvailable(renderable);
+      } else {
+        container.innerHTML = sanitizeIfAvailable(renderable);
+      }
     }
 
     const renderMermaidToElement = async (targetEl, code, idHint = "") => {
@@ -156,20 +199,210 @@ export default function PostDetails() {
   if (!post) return <div className="p-8">Post not found</div>;
 
   return (
-    <div className="container mx-auto px-6 py-10 max-w-3xl">
-      {post.image && (
-        <img
-          src={getFileViewUrl(post.image)}
-          alt={post.title}
-          className="w-full h-full object-cover rounded mb-6"
-        />
-      )}
-      <h1 className="text-3xl font-bold mb-4 text-gray-900 dark:text-gray-100">{post.title}</h1>
-      <div className="prose dark:prose-invert">
-        {/* render content into ref then post-process for mermaid */}
-        <div ref={containerRef} />
+    <>
+      <style>{`
+        /* Heading styles */
+        .prose h1 {
+          font-size: 1.875rem !important; /* 3xl */
+          font-weight: 700 !important;
+          line-height: 2.25rem !important;
+          margin-top: 1.5rem !important;
+          margin-bottom: 1rem !important;
+          color: #111827;
+        }
+        .prose h2 {
+          font-size: 1.5rem !important; /* 2xl */
+          font-weight: 600 !important;
+          line-height: 2rem !important;
+          margin-top: 1.25rem !important;
+          margin-bottom: 0.75rem !important;
+          color: #111827;
+        }
+        .prose h3 {
+          font-size: 1.25rem !important; /* xl */
+          font-weight: 500 !important;
+          line-height: 1.75rem !important;
+          margin-top: 1rem !important;
+          margin-bottom: 0.5rem !important;
+          color: #111827;
+        }
+        
+        /* Dark mode headings */
+        .dark .prose h1,
+        .dark .prose h2,
+        .dark .prose h3 {
+          color: #f9fafb !important;
+        }
+        
+        /* Table styling */
+        .prose table {
+          width: 100% !important;
+          border-collapse: collapse !important;
+          margin: 16px 0 !important;
+          display: table !important;
+        }
+        .prose table th,
+        .prose table td {
+          border: 1px solid #d1d5db !important;
+          padding: 12px !important;
+          text-align: left !important;
+          background-color: white !important;
+          color: #111827 !important;
+        }
+        .prose table th {
+          background-color: #f3f4f6 !important;
+          font-weight: 600 !important;
+          color: #111827 !important;
+        }
+        .dark .prose table th,
+        .dark .prose table td {
+          border-color: #4b5563 !important;
+          background-color: #1f2937 !important;
+          color: #f9fafb !important;
+        }
+        .dark .prose table th {
+          background-color: #374151 !important;
+          color: #f9fafb !important;
+        }
+        
+        /* Blockquote styling */
+        .prose blockquote {
+          border-left: 4px solid #9ca3af !important;
+          padding-left: 16px !important;
+          padding-top: 8px !important;
+          padding-bottom: 8px !important;
+          margin: 16px 0 !important;
+          font-size: 1.125rem !important;
+          font-style: italic !important;
+          color: #4b5563 !important;
+          background-color: transparent !important;
+        }
+        .dark .prose blockquote {
+          border-left-color: #6b7280 !important;
+          color: #d1d5db !important;
+        }
+        
+        /* Callout styling - ensure visibility */
+        .prose > div[style*="border-left"][style*="background-color"] {
+          display: flex !important;
+          gap: 12px !important;
+          padding: 16px !important;
+          border-radius: 8px !important;
+          margin: 16px 0 !important;
+        }
+        .prose > div[style*="border-left"] > div {
+          flex: 1 !important;
+          color: #111827 !important;
+        }
+        .dark .prose > div[style*="border-left"] > div {
+          color: #f9fafb !important;
+        }
+        
+        /* List styling */
+        .prose ul,
+        .prose ol {
+          padding-left: 1.5rem !important;
+          margin: 0.75rem 0 !important;
+          list-style-position: outside !important;
+        }
+        .prose ul {
+          list-style-type: disc !important;
+        }
+        .prose ol {
+          list-style-type: decimal !important;
+        }
+        .prose ul li,
+        .prose ol li {
+          margin: 0.5rem 0 !important;
+          color: #111827 !important;
+        }
+        .dark .prose ul li,
+        .dark .prose ol li {
+          color: #f9fafb !important;
+        }
+        
+        /* Code block styling */
+        .prose pre {
+          background-color: #1f2937 !important;
+          color: #f3f4f6 !important;
+          padding: 16px !important;
+          border-radius: 8px !important;
+          overflow-x: auto !important;
+          margin: 16px 0 !important;
+        }
+        .prose pre code {
+          background: transparent !important;
+          padding: 0 !important;
+          color: #f3f4f6 !important;
+          font-family: 'Courier New', monospace !important;
+        }
+        
+        /* Figure/Image styling */
+        .prose figure {
+          text-align: center !important;
+          margin: 16px 0 !important;
+        }
+        .prose figure img {
+          max-width: 100% !important;
+          height: auto !important;
+          border-radius: 8px !important;
+          display: inline-block !important;
+        }
+        .prose figure figcaption {
+          font-size: 0.9em !important;
+          color: #6b7280 !important;
+          margin-top: 8px !important;
+          text-align: center !important;
+          font-style: italic !important;
+        }
+        .dark .prose figure figcaption {
+          color: #9ca3af !important;
+        }
+        
+        /* Paragraph styling */
+        .prose p {
+          margin: 0.75rem 0 !important;
+          color: #374151 !important;
+          line-height: 1.75 !important;
+        }
+        .dark .prose p {
+          color: #d1d5db !important;
+        }
+        
+        /* TOC styling */
+        .prose > div[style*="background-color: #f9fafb"] {
+          background-color: #f9fafb !important;
+          border: 1px solid #e5e7eb !important;
+          border-radius: 8px !important;
+          padding: 16px !important;
+          margin: 16px 0 !important;
+        }
+        .dark .prose > div[style*="background-color: #f9fafb"] {
+          background-color: #1f2937 !important;
+          border-color: #374151 !important;
+        }
+        .prose > div[style*="background-color: #f9fafb"] div {
+          color: #111827 !important;
+        }
+        .dark .prose > div[style*="background-color: #f9fafb"] div {
+          color: #f9fafb !important;
+        }
+      `}</style>
+      <div className="container mx-auto px-6 py-10 max-w-3xl">
+        {post.image && (
+          <img
+            src={getFileViewUrl(post.image)}
+            alt={post.title}
+            className="w-full h-full object-cover rounded mb-6"
+          />
+        )}
+        <h1 className="text-3xl font-bold mb-4 text-gray-900 dark:text-gray-100">{post.title}</h1>
+        <div className="prose dark:prose-invert max-w-none">
+          {/* render content into ref then post-process for mermaid */}
+          <div ref={containerRef} />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
