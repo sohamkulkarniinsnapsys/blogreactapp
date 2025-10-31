@@ -21,8 +21,32 @@ export default function PostContentRenderer({ htmlContent }) {
     // Parse HTML string into DOM
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlContent, "text/html");
-    const elements = Array.from(doc.body.children);
-    
+    let elements = Array.from(doc.body.children);
+
+    // Ensure headings (h1/h2/h3) have stable IDs so TOC links can target them.
+    // Generate slugified IDs for headings without one.
+    const slugify = (str) =>
+      String(str)
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, "-")
+        .replace(/[^\w\-]+/g, "")
+        .replace(/\-\-+/g, "-")
+        .replace(/^-+|-+$/g, "");
+
+    const headingNodes = Array.from(doc.querySelectorAll("h1, h2, h3"));
+    if (headingNodes.length > 0) {
+      headingNodes.forEach((h, i) => {
+        if (!h.id) {
+          const base = slugify(h.textContent || `heading-${i}`);
+          // Guarantee uniqueness: include index + timestamp
+          h.id = `${base || "heading"}-${i}-${Date.now().toString(36)}`;
+        }
+      });
+      // Refresh elements because doc nodes have changed (though same references, keep consistent)
+      elements = Array.from(doc.body.children);
+    }
+
     // helper: render mermaid in an already injected container
     const renderMermaidInContainer = async (root) => {
       try {
@@ -65,13 +89,25 @@ export default function PostContentRenderer({ htmlContent }) {
       const wrapper = document.createElement("div");
       wrapper.className = "block-wrapper";
 
+      // Helper to get or generate the id for this element (use id already in doc if present)
+      const getHeadingId = (el, fallbackIndex) => {
+        const existing = el.getAttribute && el.getAttribute("id");
+        if (existing) return existing;
+        // Shouldn't happen because we generated ids above; fallback generation:
+        const base = slugify(el.textContent || `heading-${fallbackIndex}`);
+        return `${base || "heading"}-${fallbackIndex}-${Date.now().toString(36)}`;
+      };
+
       // Handle different block types
       if (element.tagName === "H1") {
-        wrapper.innerHTML = `<h1 class="text-3xl font-bold mt-6 mb-4 text-gray-900 dark:text-gray-100">${element.innerHTML}</h1>`;
+        const id = getHeadingId(element, index);
+        wrapper.innerHTML = `<h1 id="${id}" class="text-3xl font-bold mt-6 mb-4 text-gray-900 dark:text-gray-100">${element.innerHTML}</h1>`;
       } else if (element.tagName === "H2") {
-        wrapper.innerHTML = `<h2 class="text-2xl font-semibold mt-5 mb-3 text-gray-900 dark:text-gray-100">${element.innerHTML}</h2>`;
+        const id = getHeadingId(element, index);
+        wrapper.innerHTML = `<h2 id="${id}" class="text-2xl font-semibold mt-5 mb-3 text-gray-900 dark:text-gray-100">${element.innerHTML}</h2>`;
       } else if (element.tagName === "H3") {
-        wrapper.innerHTML = `<h3 class="text-xl font-medium mt-4 mb-2 text-gray-900 dark:text-gray-100">${element.innerHTML}</h3>`;
+        const id = getHeadingId(element, index);
+        wrapper.innerHTML = `<h3 id="${id}" class="text-xl font-medium mt-4 mb-2 text-gray-900 dark:text-gray-100">${element.innerHTML}</h3>`;
       } else if (element.tagName === "P") {
         wrapper.innerHTML = `<p class="my-3 text-gray-700 dark:text-gray-300 leading-relaxed">${element.innerHTML}</p>`;
       } else if (element.tagName === "BLOCKQUOTE") {
@@ -182,9 +218,20 @@ export default function PostContentRenderer({ htmlContent }) {
             </div>
           `;
         } else if (style.includes("background-color: #f9fafb") || style.includes("background-color:#f9fafb")) {
-          // TOC block
-          const titleDiv = element.querySelector("div:first-child");
-          const contentDiv = element.querySelector("div:last-child");
+          // TOC block — build anchors by scanning the full parsed doc for headings (h1,h2,h3)
+          // We already ensured headings in `doc` have ids above.
+          const headings = Array.from(doc.querySelectorAll("h1, h2, h3"));
+
+          const tocItems = headings
+            .map((h) => {
+              const level = h.tagName.toLowerCase() === "h1" ? 1 : h.tagName.toLowerCase() === "h2" ? 2 : 3;
+              const text = (h.textContent || "").trim() || "(Empty heading)";
+              const indentPx = (level - 1) * 12;
+              const id = h.getAttribute("id");
+              // Escape id when inserting into href if CSS.escape is available
+              return `<div style="margin-left:${indentPx}px"><a href="#${id}" class="toc-link text-sm hover:text-blue-600 inline-block">${text}</a></div>`;
+            })
+            .join("");
 
           wrapper.innerHTML = `
             <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 my-4">
@@ -195,10 +242,64 @@ export default function PostContentRenderer({ htmlContent }) {
                 <span class="font-semibold text-gray-700 dark:text-gray-300">Table of Contents</span>
               </div>
               <div class="space-y-2 text-gray-700 dark:text-gray-300">
-                ${contentDiv?.innerHTML || ""}
+                ${tocItems || "<div class='text-sm italic text-gray-400'>No headings found in this post.</div>"}
               </div>
             </div>
           `;
+          // Append wrapper first so the TOC is visible in the order it appears
+          const appended = container.appendChild(wrapper);
+
+          // Attach smooth-scroll + focus behavior to anchors we just created
+          try {
+            const anchors = appended.querySelectorAll('a[href^="#"]');
+            anchors.forEach((a) => {
+              a.addEventListener("click", (ev) => {
+                ev.preventDefault();
+                const id = (a.getAttribute("href") || "").slice(1);
+                if (!id) return;
+                // Find heading inside the rendered container. We will query container for the id.
+                // Because we will append heading wrappers later in the loop, we can still find them by id
+                // as long as they exist in doc and we render them with same id (we did).
+                const target = container.querySelector(`#${CSS && CSS.escape ? CSS.escape(id) : id}`);
+                if (target) {
+                  try {
+                    target.scrollIntoView({ behavior: "smooth", block: "center" });
+                  } catch (err) {
+                    // fallback
+                    target.scrollIntoView();
+                  }
+                  // attempt to focus for accessibility
+                  try {
+                    if (!target.hasAttribute("tabindex")) {
+                      target.setAttribute("tabindex", "-1");
+                      target.addEventListener("blur", () => {
+                        try { target.removeAttribute("tabindex"); } catch (e) {}
+                      }, { once: true });
+                    }
+                    target.focus({ preventScroll: true });
+                  } catch (e) {
+                    // ignore focus errors
+                  }
+                } else {
+                  // If heading node isn't present in the container yet (TOC before headings),
+                  // try to find it in the doc and then attempt to find the rendered node after a tiny delay.
+                  setTimeout(() => {
+                    const delayed = container.querySelector(`#${CSS && CSS.escape ? CSS.escape(id) : id}`);
+                    if (delayed) {
+                      try { delayed.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (e) { delayed.scrollIntoView(); }
+                      try { delayed.focus({ preventScroll: true }); } catch (e) {}
+                    }
+                  }, 60);
+                }
+              });
+            });
+          } catch (err) {
+            // Non-fatal; continue rendering other blocks
+            console.error("Failed to attach TOC anchor listeners", err);
+          }
+
+          // Already appended and handled the anchor listeners — continue to next element
+          return;
         } else {
           // Generic div
           wrapper.innerHTML = element.outerHTML;
