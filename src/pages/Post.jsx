@@ -169,7 +169,6 @@ export default function Post() {
   }, [post]);
 
   if (!post) return <p className="p-4">Loading post...</p>;
-
   return (
     <div className="p-4 max-w-2xl mx-auto">
       <h1 className="text-3xl font-bold">{post.title}</h1>
