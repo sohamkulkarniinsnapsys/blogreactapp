@@ -309,27 +309,41 @@ export default function CreatePostEnhanced() {
     let text = el.textContent.replace(/^\/\w*/, "").trim();
     el.innerHTML = text;
 
-    if (type === "Image") {
-      const fileInput = document.createElement("input");
-      fileInput.type = "file";
-      fileInput.accept = "image/*";
-      fileInput.onchange = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const imageBlock = { id: crypto.randomUUID(), type: "image", content: "", src: reader.result };
-          const index = blocks.findIndex((b) => b.id === id);
-          const updated = [...blocks];
-          updated.splice(index + 1, 0, imageBlock);
-          setBlocks(updated);
-        };
-        reader.readAsDataURL(file);
-      };
-      fileInput.click();
-      setSlashMenuId(null);
-      return;
-    }
+        if (type === "Image") {
+          const fileInput = document.createElement("input");
+          fileInput.type = "file";
+          fileInput.accept = "image/*";
+          fileInput.onchange = (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onloadend = () => {
+          const dataUrl = reader.result;
+
+          // Ask the user whether to set as cover or insert inline.
+          // OK => Set as cover. Cancel => Insert inline image block.
+          
+            // Insert as an inline image block (existing behavior)
+            const imageBlock = {
+              id: crypto.randomUUID(),
+              type: "image",
+              src: dataUrl,
+              caption: "", // added for captions
+            };
+            const index = blocks.findIndex((b) => b.id === id);
+            const updated = [...blocks];
+            updated.splice(index + 1, 0, imageBlock);
+            setBlocks(updated);
+            setFocusNextId(imageBlock.id);
+          
+         };
+          reader.readAsDataURL(file);
+          };
+          fileInput.click();
+          setSlashMenuId(null);
+          return;
+        }
+
 
     if (type === "Code") {
       setBlocks((prev) =>
@@ -410,7 +424,12 @@ export default function CreatePostEnhanced() {
               return `<pre><code class="language-${b.language}">${b.content}</code></pre>`;
             case "image":
               // keep whatever src the block has (base64 or remote URL)
-              return `<img src="${b.src}" alt="uploaded" />`;
+              return `
+              <figure style="text-align:center;">
+                <img src="${b.src}" alt="uploaded" style="max-width:100%; border-radius:8px;" />
+                ${b.caption ? `<figcaption style="font-size:0.9em; color:gray; margin-top:4px;">${b.caption}</figcaption>` : ""}
+              </figure>
+            `;
             default:
               return b.content;
           }
@@ -553,7 +572,7 @@ const saveCroppedImage = async () => {
         )}
       </div>
 
-      {/* Title */}
+            {/* Title */}
       <div
         className="relative group mb-8"
         onMouseEnter={() => setIsHoveringTitle(true)}
@@ -578,7 +597,48 @@ const saveCroppedImage = async () => {
           placeholder="Untitled"
           className="w-full text-5xl font-bold p-3 bg-transparent focus:outline-none text-gray-900 dark:text-white placeholder-gray-400"
         />
+
+        {/* Add Cover Image button (right side, shows on hover like Notion) */}
+        <div className="absolute right-3 top-3 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition">
+          <label
+            title="Add cover image"
+            className="cursor-pointer bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-white px-3 py-1 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7M16 3v4M8 3v4" />
+            </svg>
+            Add Cover
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleCoverUpload}
+              className="hidden"
+            />
+          </label>
+        </div>
+
+        {/* If there's already a cover, show small 'Change / Remove' controls (optional) */}
+        {coverImage && (
+          <div className="absolute right-3 top-12 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition">
+            <div className="flex gap-2">
+              <label
+                title="Change cover"
+                className="cursor-pointer bg-black text-white px-3 py-1 rounded-lg text-sm hover:bg-black/20 transition"
+              >
+                Change
+                <input type="file" accept="image/*" onChange={handleCoverUpload} className="hidden" />
+              </label>
+              <button
+                onClick={removeCoverImage}
+                className="cursor-pointer bg-red-600 text-white px-3 py-1 rounded-lg text-sm hover:bg-red-700 transition"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
 
       {/* Blocks */}
       <div className="space-y-2">
@@ -672,10 +732,7 @@ const saveCroppedImage = async () => {
                   src={b.src}
                   alt="uploaded"
                   className="rounded-lg max-h-96 object-cover shadow-md cursor-pointer"
-                  onClick={() => {
-                    // Open modal for editing
-                    setEditingImage({ id: b.id, src: b.src });
-                  }}
+                  onClick={() => setEditingImage({ id: b.id, src: b.src })}
                 />
                 {/* Optional overlay buttons */}
                 <div className="absolute top-2 right-2 flex space-x-2">
@@ -686,6 +743,21 @@ const saveCroppedImage = async () => {
                     Edit
                   </button>
                 </div>
+
+                {/* ✅ Caption input below image */}
+                <input
+                  type="text"
+                  value={b.caption || ""}
+                  onChange={(e) =>
+                    setBlocks((prev) =>
+                      prev.map((block) =>
+                        block.id === b.id ? { ...block, caption: e.target.value } : block
+                      )
+                    )
+                  }
+                  placeholder="Add a caption..."
+                  className="mt-2 w-full text-sm text-gray-500 dark:text-gray-400 bg-transparent focus:outline-none border-b border-transparent focus:border-gray-300 pb-1"
+            />
               </div>
             ) : (
               <div className="relative w-full min-h-8">
@@ -791,119 +863,42 @@ const saveCroppedImage = async () => {
         ))}
       </div>
 
-      {/* Footer */}
-      <div
-        className="flex justify-between items-center mt-15 pt-6 border-t border-gray-200 dark:border-gray-700 cursor-text"
-        onClick={() => {
-          const lastBlock = blocks[blocks.length - 1];
-          // If last block is empty paragraph, just focus it
-          if (lastBlock.type === "paragraph" && lastBlock.content.trim() === "") {
-            setFocusNextId(lastBlock.id);
-            return;
-          }
+  {/* Footer */}
+  <div
+    className="flex justify-between items-center mt-15 pt-6 border-t border-gray-200 dark:border-gray-700 cursor-text"
+    onClick={() => {
+      const lastBlock = blocks[blocks.length - 1];
+      // If last block is empty paragraph, just focus it
+      if (lastBlock.type === "paragraph" && lastBlock.content.trim() === "") {
+        setFocusNextId(lastBlock.id);
+        return;
+      }
 
-          // If last block is code or image, create a new paragraph block
-          if (lastBlock.type === "code" || lastBlock.type === "image" || lastBlock.type === "separator" || lastBlock.content.trim() !== "") {
-            addBlock(blocks.length - 1, "paragraph", "");
-          }
-        }}
-      >
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className="cursor-pointer px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="draft">💾 Draft</option>
-          <option value="publish">🚀 Publish</option>
-          <option value="archive">📦 Archive</option>
-        </select>
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={loading}
-          className="cursor-pointer bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg transition font-medium shadow-sm"
-        >
-          {loading ? "Publishing..." : "Publish Post"}
-        </button>
+      // If last block is code or image, create a new paragraph block
+      if (lastBlock.type === "code" || lastBlock.type === "image" || lastBlock.type === "separator" || lastBlock.content.trim() !== "") {
+        addBlock(blocks.length - 1, "paragraph", "");
+      }
+    }}
+  >
+    <select
+      value={status}
+      onChange={(e) => setStatus(e.target.value)}
+      className="cursor-pointer px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+    >
+      <option value="draft">💾 Draft</option>
+      <option value="publish">🚀 Publish</option>
+      <option value="archive">📦 Archive</option>
+    </select>
+    <button
+      type="button"
+      onClick={handleSubmit}
+      disabled={loading}
+      className="cursor-pointer bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg transition font-medium shadow-sm"
+    >
+      {loading ? "Publishing..." : "Publish Post"}
+    </button>
+  </div>
+
       </div>
-
-          </div>
-        );
-      }
-
-{/** choose option b
-import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import { getPost, getFileViewUrl } from "../services/appwrite";
-import Spinner from "../components/Spinner";
-
-export default function PostDetails() {
-  const { id } = useParams();
-  const [post, setPost] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const p = await getPost(id);
-        setPost(p);
-      } catch (err) {
-        console.error("getPost error:", err);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [id]);
-
-  if (loading) return <Spinner />;
-  if (!post) return <div className="p-8">Post not found</div>;
-
-  return (
-    <div className="container mx-auto px-6 py-10 max-w-3xl">
-      {post.image && (
-        <img
-          src={getFileViewUrl(post.image)}
-          alt={post.title}
-          className="w-full h-full object-cover rounded mb-6"
-        />
-      )}
-      <h1 className="text-3xl font-bold mb-4 text-gray-900 dark:text-gray-100">
-        {post.title}
-      </h1>
-      <div
-        className="prose dark:prose-invert"
-        dangerouslySetInnerHTML={{ __html: post.content }}
-      ></div>
-    </div>
-  );
-}
-this is my react\blogreactapp\src\pages\PostDetails.jsx
-
-
-import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import { getPost } from "../services/appwrite";
-
-export default function Post() {
-  const { id } = useParams();
-  const [post, setPost] = useState(null);
-
-  useEffect(() => {
-    getPost(id).then(setPost);
-  }, [id]);
-
-  if (!post) return <p className="p-4">Loading post...</p>;
-
-  return (
-    <div className="p-4 max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold">{post.title}</h1>
-      <div
-        className="mt-4 prose dark:prose-invert"
-        dangerouslySetInnerHTML={{ __html: post.content }}
-      ></div>
-    </div>
-  );
-}
-this is my react\blogreactapp\src\pages\Post.jsx
-
-do changes as required and update the code and give whole code */}
+    );
+  }

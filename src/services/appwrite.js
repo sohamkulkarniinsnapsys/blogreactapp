@@ -1,12 +1,22 @@
 // src/services/appwrite.js
-import { Client, Account, Databases, ID, Storage, Query, Permission, Role } from "appwrite";
+import {
+  Client,
+  Account,
+  Databases,
+  ID,
+  Storage,
+  Query,
+  Permission,
+  Role,
+} from "appwrite";
 
 // -----------------
 // Appwrite Setup
 // -----------------
-const client = new Client()
-  .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT?.trim() || "")
-  .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID?.trim() || "");
+const endpoint = import.meta.env.VITE_APPWRITE_ENDPOINT?.trim().replace(/\/$/, "") || "";
+const projectId = import.meta.env.VITE_APPWRITE_PROJECT_ID?.trim() || "";
+
+const client = new Client().setEndpoint(endpoint).setProject(projectId);
 
 export const account = new Account(client);
 export const databases = new Databases(client);
@@ -15,20 +25,16 @@ export const storage = new Storage(client);
 export const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 export const COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_ID;
 export const BUCKET_ID = import.meta.env.VITE_APPWRITE_BUCKET_ID;
-export const PROJECT_ID = import.meta.env.VITE_APPWRITE_PROJECT_ID;
+export const PROJECT_ID = projectId;
 
 // -----------------
 // Environment Validation
 // -----------------
-if (!import.meta.env.VITE_APPWRITE_ENDPOINT) {
-  console.error("[Appwrite] Missing: VITE_APPWRITE_ENDPOINT");
-}
-if (!DATABASE_ID || !COLLECTION_ID) {
-  console.warn("[Appwrite] Missing DATABASE_ID or COLLECTION_ID. CRUD ops may fail.");
-}
-if (!BUCKET_ID) {
+if (!endpoint) console.error("[Appwrite] Missing: VITE_APPWRITE_ENDPOINT");
+if (!DATABASE_ID || !COLLECTION_ID)
+  console.warn("[Appwrite] Missing DATABASE_ID or COLLECTION_ID. CRUD may fail.");
+if (!BUCKET_ID)
   console.warn("[Appwrite] Missing BUCKET_ID. Image uploads will fail.");
-}
 
 // -----------------
 // Auth
@@ -79,11 +85,10 @@ export const getCurrentUser = async () => {
 // Storage
 // -----------------
 export const uploadImage = async (file, userId = null) => {
-  if (!BUCKET_ID) throw new Error("BUCKET_ID is not configured (VITE_APPWRITE_BUCKET_ID).");
+  if (!BUCKET_ID) throw new Error("BUCKET_ID is not configured.");
 
   try {
     const permissions = [Permission.read(Role.any())];
-
     if (userId) {
       permissions.push(
         Permission.write(Role.user(userId)),
@@ -99,11 +104,14 @@ export const uploadImage = async (file, userId = null) => {
   }
 };
 
-// Safe file view URL
+export const uploadTextAsFile = async (text, filename = "content.json", userId = null) => {
+  const blob = new Blob([text], { type: "application/json" });
+  const file = new File([blob], filename, { type: "application/json" });
+  return await uploadImage(file, userId);
+};
+
 export const getFileViewUrl = (fileId) => {
-  if (!fileId || !BUCKET_ID || !PROJECT_ID || !import.meta.env.VITE_APPWRITE_ENDPOINT)
-    return "";
-  const endpoint = import.meta.env.VITE_APPWRITE_ENDPOINT.replace(/\/$/, "");
+  if (!fileId || !BUCKET_ID || !PROJECT_ID || !endpoint) return null;
   return `${endpoint}/storage/buckets/${BUCKET_ID}/files/${fileId}/view?project=${PROJECT_ID}`;
 };
 
@@ -115,7 +123,9 @@ function ensureDbConfig() {
   if (!COLLECTION_ID) throw new Error("COLLECTION_ID is not configured.");
 }
 
-// Create Post (image optional)
+// -----------------
+// Create Post
+// -----------------
 export const createPost = async (title, content, imageFile, userId, status = "draft") => {
   ensureDbConfig();
   if (!userId) throw new Error("userId is required for post creation.");
@@ -126,9 +136,17 @@ export const createPost = async (title, content, imageFile, userId, status = "dr
       fileId = await uploadImage(imageFile, userId);
     }
 
+    // If content exceeds safe limit, upload as JSON file
+    let finalContent = content;
+    if (content && content.length > 65000) {
+      console.warn("[Appwrite] Content too large, uploading as file instead.");
+      const contentFileId = await uploadTextAsFile(content, "content.json", userId);
+      finalContent = `__STORAGE_FILE__${contentFileId}`;
+    }
+
     const doc = await databases.createDocument(DATABASE_ID, COLLECTION_ID, ID.unique(), {
-      title,
-      content,
+      title: title || "",
+      content: String(finalContent || ""),
       image: fileId || null,
       userID: userId,
       status,
@@ -140,7 +158,9 @@ export const createPost = async (title, content, imageFile, userId, status = "dr
   }
 };
 
-// Get posts optionally filtered by status or userID
+// -----------------
+// Get Posts
+// -----------------
 export const getPosts = async ({ status = null, userId = null } = {}) => {
   ensureDbConfig();
   try {
@@ -156,26 +176,38 @@ export const getPosts = async ({ status = null, userId = null } = {}) => {
   }
 };
 
-// Get single post by ID
+// -----------------
+// Get Single Post
+// -----------------
 export const getPost = async (id) => {
   ensureDbConfig();
   try {
-    return await databases.getDocument(DATABASE_ID, COLLECTION_ID, id);
+    const doc = await databases.getDocument(DATABASE_ID, COLLECTION_ID, id);
+
+    // If stored as file reference, fetch its content
+    if (doc.content?.startsWith("__STORAGE_FILE__")) {
+      const fileId = doc.content.replace("__STORAGE_FILE__", "");
+      const fileUrl = getFileViewUrl(fileId);
+      const response = await fetch(fileUrl);
+      doc.content = await response.text();
+    }
+
+    return doc;
   } catch (err) {
     console.error("getPost error:", err);
     throw err;
   }
 };
 
-// Update Post (image optional)
+// -----------------
+// Update Post
+// -----------------
 export const updatePost = async (id, title, content, imageFile, status) => {
   ensureDbConfig();
   try {
-    const payload = { title, content };
+    const payload = { title, content: String(content || "") };
 
-    if (imageFile) {
-      payload.image = await uploadImage(imageFile);
-    }
+    if (imageFile) payload.image = await uploadImage(imageFile);
     if (status) payload.status = status;
 
     return await databases.updateDocument(DATABASE_ID, COLLECTION_ID, id, payload);
@@ -185,7 +217,9 @@ export const updatePost = async (id, title, content, imageFile, status) => {
   }
 };
 
+// -----------------
 // Delete Post
+// -----------------
 export const deletePost = async (id) => {
   ensureDbConfig();
   try {
