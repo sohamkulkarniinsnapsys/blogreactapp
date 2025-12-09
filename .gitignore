@@ -24,6 +24,6 @@ dist-ssr
 *.sw?
 
 .env
-testing
 
 test-results
+/playwright-report
